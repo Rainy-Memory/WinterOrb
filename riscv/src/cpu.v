@@ -61,6 +61,7 @@ module cpu (
     wire                     dec_dis_ready;
     wire [`WORD_RANGE]       dec_dis_pc;
     wire [1:0]               dec_dis_to_lsb_signal;
+    wire [1:0]               dec_dis_lsb_goal;
 
     // Decoder to RegisterFile
     wire [`REG_INDEX_RANGE] dec_rf_rs1;
@@ -109,6 +110,7 @@ module cpu (
     // Dispatcher to LoadStoreBuffer
     wire dis_lsb_new_inst_signal;
     wire dis_lsb_load_store_signal;
+    wire [1:0] dis_lsb_goal;
 
     // RegisterFile to Decoder
     wire [`WORD_RANGE]    rf_dec_Vj;
@@ -194,6 +196,7 @@ module cpu (
         .dis_ready_out(dec_dis_ready),
         .dis_pc_out(dec_dis_pc),
         .dis_to_lsb_signal_out(dec_dis_to_lsb_signal),
+        .dis_lsb_goal_out(dec_dis_lsb_goal),
 
         .rf_rs1_out(dec_rf_rs1),
         .rf_rs2_out(dec_rf_rs2),
@@ -233,6 +236,7 @@ module cpu (
         .dec_ready_in(dec_dis_ready),
         .dec_pc_in(dec_dis_pc),
         .dec_to_lsb_signal_in(dec_dis_to_lsb_signal),
+        .dec_lsb_goal_in(dec_dis_lsb_goal),
 
         .rob_tag_in(rob_dis_tag),
 
@@ -246,7 +250,8 @@ module cpu (
         .rs_new_inst_signal_out(dis_rs_new_inst_signal),
 
         .lsb_new_inst_signal_out(dis_lsb_new_inst_signal),
-        .lsb_load_store_signal_out(dis_lsb_load_store_signal)
+        .lsb_load_store_signal_out(dis_lsb_load_store_signal),
+        .lsb_goal_out(dis_lsb_goal)
     );
 
     RegisterFile rf (
@@ -325,6 +330,7 @@ module cpu (
 
         .dis_new_inst_signal_in(dis_lsb_new_inst_signal),
         .dis_load_store_signal_in(dis_lsb_load_store_signal),
+        .dis_goal_in(dis_lsb_goal),
         .dis_inst_in(dis_inst_out),
         .dis_imm_in(dis_imm_out),
         .dis_dest_in(dis_dest_out),

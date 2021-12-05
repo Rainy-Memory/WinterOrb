@@ -26,6 +26,7 @@ module Decoder (
     output wire                      dis_ready_out,
     output wire [`WORD_RANGE]        dis_pc_out,
     output reg  [1:0]                dis_to_lsb_signal_out, // first bit represents to LSB, second bit: LOAD->0, STORE->1
+    output reg  [2:0]                dis_lsb_goal_out,
 
     // RegisterFile
     output wire [`REG_INDEX_RANGE]   rf_rs1_out,
@@ -96,6 +97,7 @@ module Decoder (
     always @(*) begin
         $fdisplay(dec_log, "current instruction: %h, issue_signal: %d, rst: %d", fet_inst_in, fet_issue_signal_in, rst);
             dis_to_lsb_signal_out = {`FALSE, 1'b0};
+            dis_lsb_goal_out = 3'b0;
             rf_occpuy_rd_out = `TRUE;
         if (rst) begin
             $fdisplay(dec_log, "resetting...");
@@ -139,20 +141,20 @@ module Decoder (
                     `LOAD_OPCODE: begin
                         dis_imm_out = immI;
                         case (fet_inst_in[14:12])
-                            `LB_FUNCT3:  begin dis_inst_type_out = `LB;  $fdisplay(dec_log, "LB, immI = %d, rs1 = %d, rd = %d",  immI, dis_rs1_out, dis_rd_out); end
-                            `LH_FUNCT3:  begin dis_inst_type_out = `LH;  $fdisplay(dec_log, "LH, immI = %d, rs1 = %d, rd = %d",  immI, dis_rs1_out, dis_rd_out); end
-                            `LW_FUNCT3:  begin dis_inst_type_out = `LW;  $fdisplay(dec_log, "LW, immI = %d, rs1 = %d, rd = %d",  immI, dis_rs1_out, dis_rd_out); end
-                            `LBU_FUNCT3: begin dis_inst_type_out = `LBU; $fdisplay(dec_log, "LBU, immI = %d, rs1 = %d, rd = %d", immI, dis_rs1_out, dis_rd_out); end
-                            `LHU_FUNCT3: begin dis_inst_type_out = `LHU; $fdisplay(dec_log, "LHU, immI = %d, rs1 = %d, rd = %d", immI, dis_rs1_out, dis_rd_out); end
+                            `LB_FUNCT3:  begin dis_inst_type_out = `LB;  dis_lsb_goal_out = 3'b001; $fdisplay(dec_log, "LB, immI = %d, rs1 = %d, rd = %d",  immI, dis_rs1_out, dis_rd_out); end
+                            `LH_FUNCT3:  begin dis_inst_type_out = `LH;  dis_lsb_goal_out = 3'b010; $fdisplay(dec_log, "LH, immI = %d, rs1 = %d, rd = %d",  immI, dis_rs1_out, dis_rd_out); end
+                            `LW_FUNCT3:  begin dis_inst_type_out = `LW;  dis_lsb_goal_out = 3'b100; $fdisplay(dec_log, "LW, immI = %d, rs1 = %d, rd = %d",  immI, dis_rs1_out, dis_rd_out); end
+                            `LBU_FUNCT3: begin dis_inst_type_out = `LBU; dis_lsb_goal_out = 3'b001; $fdisplay(dec_log, "LBU, immI = %d, rs1 = %d, rd = %d", immI, dis_rs1_out, dis_rd_out); end
+                            `LHU_FUNCT3: begin dis_inst_type_out = `LHU; dis_lsb_goal_out = 3'b010; $fdisplay(dec_log, "LHU, immI = %d, rs1 = %d, rd = %d", immI, dis_rs1_out, dis_rd_out); end
                         endcase
                         dis_to_lsb_signal_out = {`TRUE, 1'b0};
                     end
                     `STORE_OPCODE: begin
                         dis_imm_out = immS;
                         case (fet_inst_in[14:12])
-                            `SB_FUNCT3: begin dis_inst_type_out = `SB; $fdisplay(dec_log, "SB, immS = %d, rs1 = %d, rs2 = %d", immS, dis_rs1_out, dis_rs2_out); end
-                            `SH_FUNCT3: begin dis_inst_type_out = `SH; $fdisplay(dec_log, "SH, immS = %d, rs1 = %d, rs2 = %d", immS, dis_rs1_out, dis_rs2_out); end
-                            `SW_FUNCT3: begin dis_inst_type_out = `SW; $fdisplay(dec_log, "SW, immS = %d, rs1 = %d, rs2 = %d", immS, dis_rs1_out, dis_rs2_out); end
+                            `SB_FUNCT3: begin dis_inst_type_out = `SB; dis_lsb_goal_out = 3'b001; $fdisplay(dec_log, "SB, immS = %d, rs1 = %d, rs2 = %d", immS, dis_rs1_out, dis_rs2_out); end
+                            `SH_FUNCT3: begin dis_inst_type_out = `SH; dis_lsb_goal_out = 3'b010; $fdisplay(dec_log, "SH, immS = %d, rs1 = %d, rs2 = %d", immS, dis_rs1_out, dis_rs2_out); end
+                            `SW_FUNCT3: begin dis_inst_type_out = `SW; dis_lsb_goal_out = 3'b100; $fdisplay(dec_log, "SW, immS = %d, rs1 = %d, rs2 = %d", immS, dis_rs1_out, dis_rs2_out); end
                         endcase
                         dis_to_lsb_signal_out = {`TRUE, 1'b1};
                         rf_occpuy_rd_out = `FALSE;

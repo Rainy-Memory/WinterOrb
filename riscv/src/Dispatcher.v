@@ -20,6 +20,7 @@ module Dispatcher (
     input  wire                      dec_ready_in,
     input  wire [`WORD_RANGE]        dec_pc_in,
     input  wire [1:0]                dec_to_lsb_signal_in, // first bit represents to LSB, second bit: LOAD -> 0, STORE -> 1
+    input  wire [2:0]                dec_lsb_goal_in,
 
     // ReorderBuffer
     input  wire [`ROB_TAG_RANGE]     rob_tag_in,
@@ -38,7 +39,8 @@ module Dispatcher (
 
     // LoadStoreBuffer
     output reg                       lsb_new_inst_signal_out,
-    output reg                       lsb_load_store_signal_out
+    output reg                       lsb_load_store_signal_out,
+    output wire [2:0]                lsb_goal_out
 );
 
     integer dis_log;
@@ -52,6 +54,7 @@ module Dispatcher (
     assign imm_out = dec_imm_in;
     assign pc_out = dec_pc_in;
     assign dest_out = rob_tag_in;
+    assign lsb_goal_out = dec_lsb_goal_in;
 
     always @(*) begin
         rs_new_inst_signal_out = `FALSE;
