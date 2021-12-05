@@ -1,6 +1,8 @@
 // testbench top module file
 // for simulation only
 
+`define TESTBENCH_MACRO
+
 `timescale 1ns/1ps
 module testbench;
 
@@ -16,13 +18,19 @@ riscv_top #(.SIM(1)) top(
 );
 
 initial begin
-  clk=0;
-  rst=1;
-  repeat(50) #1 clk=!clk;
-  rst=0; 
-  forever #1 clk=!clk;
+    clk = 0;
+    rst = 1;
+    repeat(50) #1 clk = !clk;
+    rst = 0;
+    // forever #1 clk = !clk;
+    repeat(5000) #1 clk = !clk;
 
-  $finish;
+    $finish;
+end
+
+initial begin
+    $dumpfile("bin/cpu_build.vcd");
+    $dumpvars;
 end
 
 endmodule

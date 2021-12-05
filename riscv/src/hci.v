@@ -208,11 +208,12 @@ always @*
     if (io_en & !io_wr)
       begin
         case (io_sel)
-          3'h00: d_io_dout = io_in_rd_data;
-          3'h04: d_io_dout = q_cpu_cycle_cnt[7:0];
-          3'h05: d_io_dout = q_cpu_cycle_cnt[15:8];
-          3'h06: d_io_dout = q_cpu_cycle_cnt[23:16];
-          3'h07: d_io_dout = q_cpu_cycle_cnt[31:24];
+          // the following 5 lines have been changed from 3'h0x to 3'dx to avoid warning
+          3'd0: d_io_dout = io_in_rd_data;
+          3'd4: d_io_dout = q_cpu_cycle_cnt[7:0];
+          3'd5: d_io_dout = q_cpu_cycle_cnt[15:8];
+          3'd6: d_io_dout = q_cpu_cycle_cnt[23:16];
+          3'd7: d_io_dout = q_cpu_cycle_cnt[31:24];
         endcase
       end
   end
@@ -244,14 +245,16 @@ always @*
     if (~q_io_en & io_en) begin
       if (io_wr) begin
         case (io_sel)
-          3'h00: begin      // 0x30000 write: output byte
+          // the following 1 line have been changed from 3'h00 to 3'd0 to avoid warning
+          3'd0: begin      // 0x30000 write: output byte
             if (!tx_full && io_din!=8'h00) begin
               d_tx_data = io_din;
               d_wr_en   = 1'b1;
             end
             $write("%c", io_din);
           end
-          3'h04: begin      // 0x30004 write: indicates program stop
+          // the following 1 line have been changed from 3'h04 to 3'd4 to avoid warning
+          3'd4: begin      // 0x30004 write: indicates program stop
             if (!tx_full) begin
               d_tx_data = 8'h00;
               d_wr_en = 1'b1;
@@ -264,7 +267,8 @@ always @*
         endcase
       end else begin
         case (io_sel)
-          3'h00: begin      // 0x30000 read: read byte from input buffer
+          // the following 1 line have been changed from 3'h00 to 3'd0 to avoid warning
+          3'd0: begin      // 0x30000 read: read byte from input buffer
             if (!io_in_empty) begin
               io_in_rd_en = 1'b1;
             end
@@ -427,7 +431,8 @@ always @*
         begin
           if (!tx_full)
             begin
-              d_execute_cnt  = 3'h04;
+              // the following 1 line have been changed from 3'h04 to 3'd4 to avoid warning
+              d_execute_cnt  = 3'd4;
               d_addr = 17'h00000;
               d_state = S_CPU_REG_RD_STG1;
             end

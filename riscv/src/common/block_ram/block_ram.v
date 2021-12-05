@@ -90,7 +90,8 @@ initial begin
   for (i=0;i<2**ADDR_WIDTH;i=i+1) begin
     ram[i] = 0;
   end
-  $readmemh("test.data", ram); // add test.data to vivado project or specify a valid file path
+//   $readmemh("C:\\RainyMemory's Workplace\\OtherLanguages\\Verilog\\RISCV-CPU\\riscv\\test\\test.data", ram); // add test.data to vivado project or specify a valid file path
+  $readmemh("./test/test.data", ram); // add test.data to vivado project or specify a valid file path
 end
 
 endmodule
