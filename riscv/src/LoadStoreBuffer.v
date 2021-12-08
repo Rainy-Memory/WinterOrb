@@ -1,13 +1,13 @@
 `include "header.v"
 
 module LoadStoreBuffer (
-    input  wire                      clk,
-    input  wire                      rst,
+    input  wire                     clk,
+    input  wire                     rst,
     
     // ReservationStation && LoadStoreBuffer && ReorderBuffer
     output reg                      broadcast_signal_out,
     output reg  [`WORD_RANGE]       result_out,
-    output wire [`ROB_TAG_RANGE]    dest_tag_out,
+    output reg  [`ROB_TAG_RANGE]    dest_tag_out,
 
     // Dispatcher
     input  wire                     dis_new_inst_signal_in,
@@ -30,11 +30,12 @@ module LoadStoreBuffer (
     input  wire [`ROB_TAG_RANGE]    alu_dest_tag_in,
 
     // MemoryController
-    input  wire                     mc_finish_signal_in,
+    input  wire                     mc_ready_in,
     input  wire [`WORD_RANGE]       mc_data_in,
+    output reg                      mc_request_signal_out,
     output reg                      mc_rw_signal_out,
     output reg  [`WORD_RANGE]       mc_address_out,
-    output reg  [2:0]               mc_goal_out,
+    output reg  [2:0]               mc_goal_out, // LB: 1, LHW: 2, LW: 4
     output reg  [`WORD_RANGE]       mc_data_out
 );
 
@@ -58,6 +59,8 @@ module LoadStoreBuffer (
     localparam IDLE = 2'b0, LOAD = 2'b1, STORE = 2'b10;
 
     always @(posedge clk) begin
+        mc_request_signal_out <= `FALSE;
+        broadcast_signal_out <= `FALSE;
         if (rst) begin
             head <= 1;
             tail <= 1;
@@ -75,7 +78,6 @@ module LoadStoreBuffer (
                 load_store_goal[tail] <= dis_goal_in;
                 tail <= tail == `LSB_CAPACITY ? 1 : tail + 1;
             end
-
             // update data by snoopy on cdb (i.e., alu)
             if (alu_broadcast_signal_in) begin
                 for (i = 0; i < `LSB_CAPACITY; i = i + 1) begin
@@ -92,6 +94,7 @@ module LoadStoreBuffer (
 
             // issue queue head
             if (status == IDLE && ready[head]) begin
+                mc_request_signal_out <= `TRUE;
                 mc_goal_out <= load_store_goal[head];
                 mc_rw_signal_out <= load_store_flag[head];
                 current_tag <= rob_tag[head];
@@ -104,19 +107,26 @@ module LoadStoreBuffer (
                 end
                 head <= head == `LSB_CAPACITY ? 1 : head + 1;
             end else if (status == STORE) begin
-                status <= IDLE;
+                if (mc_ready_in) begin
+                    status <= IDLE;
+                end
             end else if (status == LOAD)  begin
-                status <= IDLE;
-                // broadcast
-                // TODO maybe from head to tail?
-                for (i = 0; i < `LSB_CAPACITY; i = i + 1) begin
-                    if (Qj[i] == current_tag) begin
-                        Qj[i] <= `NULL_TAG;
-                        Vj[i] <= mc_data_in;
-                    end
-                    if (Qk[i] == current_tag) begin
-                        Qk[i] <= `NULL_TAG;
-                        Vk[i] <= mc_data_in;
+                if (mc_ready_in) begin
+                    status <= IDLE;
+                    // broadcast
+                    broadcast_signal_out <= `TRUE;
+                    result_out <= mc_data_in;
+                    dest_tag_out <= current_tag;
+                    // inner broadcast
+                    for (i = 0; i < `LSB_CAPACITY; i = i + 1) begin
+                        if (Qj[i] == current_tag) begin
+                            Qj[i] <= `NULL_TAG;
+                            Vj[i] <= mc_data_in;
+                        end
+                        if (Qk[i] == current_tag) begin
+                            Qk[i] <= `NULL_TAG;
+                            Vk[i] <= mc_data_in;
+                        end
                     end
                 end
             end

@@ -1,38 +1,38 @@
 `include "header.v"
 
 module ReorderBuffer (
-    input  wire                      clk,
-    input  wire                      rst,
+    input  wire                    clk,
+    input  wire                    rst,
 
     // Dispatcher
-    output wire [`ROB_TAG_RANGE]     dis_tag_out,
+    output wire [`ROB_TAG_RANGE]   dis_tag_out,
 
     // Decoder
-    input  wire [`INSTRUCTION_RANGE] dec_inst_in,
-    input  wire [`REG_INDEX_RANGE]   dec_rd_in,
-    input  wire [`ROB_TAG_RANGE]     dec_Qj_in,
-    input  wire [`ROB_TAG_RANGE]     dec_Qk_in,
-    output wire                      dec_Vj_ready_out,
-    output wire                      dec_Vk_ready_out,
-    output wire [`WORD_RANGE]        dec_Vj_out,
-    output wire [`WORD_RANGE]        dec_Vk_out,
+    input  wire [`WORD_RANGE]      dec_inst_in,
+    input  wire [`REG_INDEX_RANGE] dec_rd_in,
+    input  wire [`ROB_TAG_RANGE]   dec_Qj_in,
+    input  wire [`ROB_TAG_RANGE]   dec_Qk_in,
+    output wire                    dec_Vj_ready_out,
+    output wire                    dec_Vk_ready_out,
+    output wire [`WORD_RANGE]      dec_Vj_out,
+    output wire [`WORD_RANGE]      dec_Vk_out,
 
     // BroadCast (ArithmeticLogicUnit && LoadStoreBuffer)
-    input  wire                      alu_broadcast_signal_in,
-    input  wire [`WORD_RANGE]        alu_result_in,
-    input  wire [`ROB_TAG_RANGE]     alu_dest_tag_in,
-    input  wire                      lsb_broadcast_signal_in,
-    input  wire [`WORD_RANGE]        lsb_result_in,
-    input  wire [`ROB_TAG_RANGE]     lsb_dest_tag_in,
+    input  wire                    alu_broadcast_signal_in,
+    input  wire [`WORD_RANGE]      alu_result_in,
+    input  wire [`ROB_TAG_RANGE]   alu_dest_tag_in,
+    input  wire                    lsb_broadcast_signal_in,
+    input  wire [`WORD_RANGE]      lsb_result_in,
+    input  wire [`ROB_TAG_RANGE]   lsb_dest_tag_in,
 
     // RegisterFile
-    output reg                       rf_commit_signal_out,
-    output reg  [`ROB_TAG_RANGE]     rf_commit_tag_out,
-    output reg  [`WORD_RANGE]        rf_commit_data_out,
-    output reg  [`REG_INDEX_RANGE]   rf_commit_target_out,
+    output reg                     rf_commit_signal_out,
+    output reg  [`ROB_TAG_RANGE]   rf_commit_tag_out,
+    output reg  [`WORD_RANGE]      rf_commit_data_out,
+    output reg  [`REG_INDEX_RANGE] rf_commit_target_out,
 
     // ArithmeticLogicUnit
-    input  wire [`WORD_RANGE]        alu_new_pc_in
+    input  wire [`WORD_RANGE]      alu_new_pc_in
 );
 
     reg [`ROB_TAG_RANGE] head, tail;

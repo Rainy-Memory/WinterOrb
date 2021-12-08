@@ -9,52 +9,52 @@
  */
 
 module Decoder (
-    input  wire                      rst,
+    input  wire                     rst,
 
     // Fetcher
-    input  wire                      fet_issue_signal_in,
-    input  wire [`INSTRUCTION_RANGE] fet_inst_in,
-    input  wire [`WORD_RANGE]        fet_pc_in,
+    input  wire                     fet_issue_signal_in,
+    input  wire [`WORD_RANGE]       fet_inst_in,
+    input  wire [`WORD_RANGE]       fet_pc_in,
 
     // Dispatcher
-    output reg  [`WORD_RANGE]        dis_imm_out,
-    output reg  [`INNER_INST_RANGE]  dis_inst_type_out,
-    output wire [`REG_INDEX_RANGE]   dis_rs1_out,
-    output wire [`REG_INDEX_RANGE]   dis_rs2_out,
-    output wire [`REG_INDEX_RANGE]   dis_rd_out,
-    output wire [`SHAMT_RANGE]       dis_shamt_out,
-    output wire                      dis_ready_out,
-    output wire [`WORD_RANGE]        dis_pc_out,
-    output reg  [1:0]                dis_to_lsb_signal_out, // first bit represents to LSB, second bit: LOAD->0, STORE->1
-    output reg  [2:0]                dis_lsb_goal_out,
+    output reg  [`WORD_RANGE]       dis_imm_out,
+    output reg  [`INNER_INST_RANGE] dis_inst_type_out,
+    output wire [`REG_INDEX_RANGE]  dis_rs1_out,
+    output wire [`REG_INDEX_RANGE]  dis_rs2_out,
+    output wire [`REG_INDEX_RANGE]  dis_rd_out,
+    output wire [`SHAMT_RANGE]      dis_shamt_out,
+    output wire                     dis_ready_out,
+    output wire [`WORD_RANGE]       dis_pc_out,
+    output reg  [1:0]               dis_to_lsb_signal_out, // first bit represents to LSB, second bit: LOAD->0, STORE->1
+    output reg  [2:0]               dis_lsb_goal_out,
 
     // RegisterFile
-    output wire [`REG_INDEX_RANGE]   rf_rs1_out,
-    output wire [`REG_INDEX_RANGE]   rf_rs2_out,
-    output wire [`REG_INDEX_RANGE]   rf_rd_out,
-    output reg                       rf_occpuy_rd_out,
-    input  wire [`WORD_RANGE]        rf_Vj_in, // value of rs1
-    input  wire [`WORD_RANGE]        rf_Vk_in, // value of rs2
-    input  wire [`ROB_TAG_RANGE]     rf_Qj_in, // tag of rs1
-    input  wire [`ROB_TAG_RANGE]     rf_Qk_in, // tag of rs2
-    input  wire [`ROB_TAG_RANGE]     rf_dest_in,
+    output wire [`REG_INDEX_RANGE]  rf_rs1_out,
+    output wire [`REG_INDEX_RANGE]  rf_rs2_out,
+    output wire [`REG_INDEX_RANGE]  rf_rd_out,
+    output reg                      rf_occupy_rd_out,
+    input  wire [`WORD_RANGE]       rf_Vj_in, // value of rs1
+    input  wire [`WORD_RANGE]       rf_Vk_in, // value of rs2
+    input  wire [`ROB_TAG_RANGE]    rf_Qj_in, // tag of rs1
+    input  wire [`ROB_TAG_RANGE]    rf_Qk_in, // tag of rs2
+    input  wire [`ROB_TAG_RANGE]    rf_dest_in,
 
     // ReservationStation & LoadStoreBuffer
-    output wire [`WORD_RANGE]        Vj_out,
-    output wire [`WORD_RANGE]        Vk_out,
-    output wire [`ROB_TAG_RANGE]     Qj_out,
-    output wire [`ROB_TAG_RANGE]     Qk_out,
-    output wire [`ROB_TAG_RANGE]     dest_out,
+    output wire [`WORD_RANGE]       Vj_out,
+    output wire [`WORD_RANGE]       Vk_out,
+    output wire [`ROB_TAG_RANGE]    Qj_out,
+    output wire [`ROB_TAG_RANGE]    Qk_out,
+    output wire [`ROB_TAG_RANGE]    dest_out,
 
     // ReorderBuffer
-    output wire [`INSTRUCTION_RANGE] rob_inst_out,
-    output wire [`REG_INDEX_RANGE]   rob_rd_out,
-    output wire [`ROB_TAG_RANGE]     rob_Qj_out,
-    output wire [`ROB_TAG_RANGE]     rob_Qk_out,
-    input  wire                      rob_Vj_ready_in,
-    input  wire                      rob_Vk_ready_in,
-    input  wire [`WORD_RANGE]        rob_Vj_in,
-    input  wire [`WORD_RANGE]        rob_Vk_in
+    output wire [`WORD_RANGE]       rob_inst_out,
+    output wire [`REG_INDEX_RANGE]  rob_rd_out,
+    output wire [`ROB_TAG_RANGE]    rob_Qj_out,
+    output wire [`ROB_TAG_RANGE]    rob_Qk_out,
+    input  wire                     rob_Vj_ready_in,
+    input  wire                     rob_Vk_ready_in,
+    input  wire [`WORD_RANGE]       rob_Vj_in,
+    input  wire [`WORD_RANGE]       rob_Vk_in
 );
 
     integer dec_log;
@@ -84,8 +84,8 @@ module Decoder (
     assign rob_Qj_out = rf_Qj_in;
     assign rob_Qk_out = rf_Qk_in;
 
-    assign Vj_out   = rf_Qj_in == `NULL_TAG ? rf_Vj_in : (rob_Vj_ready_in ? rob_Vj_in : `ZERO_WORD);
-    assign Vk_out   = rf_Qk_in == `NULL_TAG ? rf_Vk_in : (rob_Vk_ready_in ? rob_Vk_in : `ZERO_WORD);
+    assign Vj_out   = rf_Qj_in == `NULL_TAG ?  rf_Vj_in : (rob_Vj_ready_in ? rob_Vj_in : `ZERO_WORD);
+    assign Vk_out   = rf_Qk_in == `NULL_TAG ?  rf_Vk_in : (rob_Vk_ready_in ? rob_Vk_in : `ZERO_WORD);
     assign Qj_out   = rf_Qj_in == `NULL_TAG ? `NULL_TAG : (rob_Vj_ready_in ? `NULL_TAG : rf_Qj_in);
     assign Qk_out   = rf_Qk_in == `NULL_TAG ? `NULL_TAG : (rob_Vk_ready_in ? `NULL_TAG : rf_Qk_in);
     assign dest_out = rf_dest_in;
@@ -98,7 +98,7 @@ module Decoder (
         $fdisplay(dec_log, "current instruction: %h, issue_signal: %d, rst: %d", fet_inst_in, fet_issue_signal_in, rst);
             dis_to_lsb_signal_out = {`FALSE, 1'b0};
             dis_lsb_goal_out = 3'b0;
-            rf_occpuy_rd_out = `TRUE;
+            rf_occupy_rd_out = `TRUE;
         if (rst) begin
             $fdisplay(dec_log, "resetting...");
             dis_imm_out = `ZERO_WORD;
@@ -136,7 +136,7 @@ module Decoder (
                             `BLTU_FUNCT3: begin dis_inst_type_out = `BLTU; $fdisplay(dec_log, "BLTU, immB = %d, rs1 = %d, rs2 = %d", immB, dis_rs1_out, dis_rs2_out); end
                             `BGEU_FUNCT3: begin dis_inst_type_out = `BGEU; $fdisplay(dec_log, "BGEU, immB = %d, rs1 = %d, rs2 = %d", immB, dis_rs1_out, dis_rs2_out); end
                         endcase
-                        rf_occpuy_rd_out = `FALSE;
+                        rf_occupy_rd_out = `FALSE;
                     end
                     `LOAD_OPCODE: begin
                         dis_imm_out = immI;
@@ -157,7 +157,7 @@ module Decoder (
                             `SW_FUNCT3: begin dis_inst_type_out = `SW; dis_lsb_goal_out = 3'b100; $fdisplay(dec_log, "SW, immS = %d, rs1 = %d, rs2 = %d", immS, dis_rs1_out, dis_rs2_out); end
                         endcase
                         dis_to_lsb_signal_out = {`TRUE, 1'b1};
-                        rf_occpuy_rd_out = `FALSE;
+                        rf_occupy_rd_out = `FALSE;
                     end
                     `ARITH_IMM_OPCODE: begin
                         dis_imm_out = immI;

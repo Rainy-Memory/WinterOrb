@@ -28,7 +28,6 @@
 `define ROB_TAG_LEN     4 // @see ROB_CAPACITY
 
 // ranges
-`define INSTRUCTION_RANGE                  31 : 0
 `define RAM_DATA_RANGE      `RAM_DATA_LEN - 1 : 0
 `define WORD_RANGE                         31 : 0
 `define RF_RANGE             `RF_CAPACITY - 1 : 0

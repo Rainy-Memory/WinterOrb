@@ -1,9 +1,13 @@
 `include "header.v"
 `include "MemoryController.v"
-`include "InstructionBuffer.v"
 `include "Fetcher.v"
 `include "Decoder.v"
 `include "Dispatcher.v"
+`include "ArithmeticLogicUnit.v"
+`include "LoadStoreBuffer.v"
+`include "RegisterFile.v"
+`include "ReorderBuffer.v"
+`include "ReservationStation.v"
 
 // RISCV32I CPU top module
 // port modification allowed for debugging purposes
@@ -23,7 +27,7 @@ module cpu (
     output wire [31:0]          dbgreg_dout      // cpu register output (debugging demo)
 );
 
-    // implementation goes here
+    // some details for homework:
 
     // Specifications:
     // - Pause cpu(freeze pc, registers, etc.) when rdy_in is low
@@ -35,21 +39,38 @@ module cpu (
     // - 0x30004 read: read clocks passed since cpu starts (in dword, 4 bytes)
     // - 0x30004 write: indicates program stop (will output '\0' through uart tx)
 
-    // MemoryController to InstructionBuffer
-    wire                   mc_ib_ready;
-    wire                   mc_ib_rw_signal;
-    wire [`WORD_RANGE]     mc_ib_address;
-    wire [`RAM_DATA_RANGE] mc_ib_data;
+    // some code format in ths project:
 
-    // InstructionBuffer to Fetcher
-    wire [`WORD_RANGE]        ib_fet_address;
-    wire                      ib_fet_ready;
-    wire [`INSTRUCTION_RANGE] ib_fet_instruction;
+    // variable (in cpu.v) name format:
+    // for a wire named NAME from module X to Y
+    // i.e. in X NAME is output and in Y NAME is input
+    //   ->   X_Y_NAME
+
+    // inside module:
+    // interfaces with same module should be placed together
+    // and input interfaces at the top of output interfaces
+
+    // MemoryController to Fetcher
+    wire               mc_fet_ready;
+    wire [`WORD_RANGE] mc_fet_instruction;
+    // Fetcher to MemoryController
+    wire               fet_mc_request_signal;
+    wire [`WORD_RANGE] fet_mc_address;
+
+    // MemoryController to LoadStoreBuffer
+    wire               mc_lsb_ready;
+    wire [`WORD_RANGE] mc_lsb_data;
+    // LoadStoreBuffer to MemoryController
+    wire               lsb_mc_request_signal;
+    wire               lsb_mc_rw_signal;
+    wire [`WORD_RANGE] lsb_mc_address;
+    wire [2:0]         lsb_mc_goal; // LB: 1, LHW: 2, LW: 4
+    wire [`WORD_RANGE] lsb_mc_data;
 
     // Fetcher to Decoder
-    wire                      fet_dec_issue_signal;
-    wire [`INSTRUCTION_RANGE] fet_dec_inst;
-    wire [`WORD_RANGE]        fet_dec_pc;
+    wire               fet_dec_issue_signal;
+    wire [`WORD_RANGE] fet_dec_inst;
+    wire [`WORD_RANGE] fet_dec_pc;
 
     // Deocder to Dispatcher
     wire [`WORD_RANGE]       dec_dis_imm;
@@ -61,13 +82,19 @@ module cpu (
     wire                     dec_dis_ready;
     wire [`WORD_RANGE]       dec_dis_pc;
     wire [1:0]               dec_dis_to_lsb_signal;
-    wire [1:0]               dec_dis_lsb_goal;
+    wire [2:0]               dec_dis_lsb_goal;
 
     // Decoder to RegisterFile
     wire [`REG_INDEX_RANGE] dec_rf_rs1;
     wire [`REG_INDEX_RANGE] dec_rf_rs2;
     wire [`REG_INDEX_RANGE] dec_rf_rd;
     wire                    dec_rf_occpuy_rd;
+    // RegisterFile to Decoder
+    wire [`WORD_RANGE]      rf_dec_Vj;
+    wire [`WORD_RANGE]      rf_dec_Vk;
+    wire [`ROB_TAG_RANGE]   rf_dec_Qj;
+    wire [`ROB_TAG_RANGE]   rf_dec_Qk;
+    wire [`ROB_TAG_RANGE]   rf_dec_dest;
 
     // Decoder to ReservationStation && LoadStoreBuffer
     wire [`WORD_RANGE]    dec_Vj_out;
@@ -77,14 +104,14 @@ module cpu (
     wire [`ROB_TAG_RANGE] dec_dest_out;
 
     // Decoder to ReorderBuffer
-    wire [`INSTRUCTION_RANGE] dec_rob_inst;
-    wire [`REG_INDEX_RANGE]   dec_rob_rd;
-    wire [`ROB_TAG_RANGE]     dec_rob_Qj;
-    wire [`ROB_TAG_RANGE]     dec_rob_Qk;
-    wire                      dec_rob_Vj_ready;
-    wire                      dec_rob_Vk_ready;
-    wire [`WORD_RANGE]        dec_rob_Vj;
-    wire [`WORD_RANGE]        dec_rob_Vk;
+    wire [`WORD_RANGE]      dec_rob_inst;
+    wire [`REG_INDEX_RANGE] dec_rob_rd;
+    wire [`ROB_TAG_RANGE]   dec_rob_Qj;
+    wire [`ROB_TAG_RANGE]   dec_rob_Qk;
+    wire                    dec_rob_Vj_ready;
+    wire                    dec_rob_Vk_ready;
+    wire [`WORD_RANGE]      dec_rob_Vj;
+    wire [`WORD_RANGE]      dec_rob_Vk;
 
     // ReorderBuffer to Dispatcher
     wire [`ROB_TAG_RANGE] rob_dis_tag;
@@ -110,14 +137,7 @@ module cpu (
     // Dispatcher to LoadStoreBuffer
     wire dis_lsb_new_inst_signal;
     wire dis_lsb_load_store_signal;
-    wire [1:0] dis_lsb_goal;
-
-    // RegisterFile to Decoder
-    wire [`WORD_RANGE]    rf_dec_Vj;
-    wire [`WORD_RANGE]    rf_dec_Vk;
-    wire [`ROB_TAG_RANGE] rf_dec_Qj;
-    wire [`ROB_TAG_RANGE] rf_dec_Qk;
-    wire [`ROB_TAG_RANGE] rf_dec_dest;
+    wire [2:0] dis_lsb_goal;
 
     // ReservationStation to ArithmeticLogicUnit
     wire [`INNER_INST_RANGE] rs_alu_op;
@@ -141,6 +161,7 @@ module cpu (
     wire [`ROB_TAG_RANGE] lsb_dest_tag_out;
 
     MemoryController mc (
+        .clk(clk_in),
         .rst(rst_in),
 
         .ram_data_in(mem_din),
@@ -148,33 +169,20 @@ module cpu (
         .ram_address_out(mem_a),
         .ram_rw_signal_out(mem_wr),
 
-        .ib_ready_out(mc_ib_ready),
-        .ib_rw_signal_in(mc_ib_rw_signal),
-        .ib_address_in(mc_ib_address),
-        .ib_data_out(mc_ib_data)
-    );
-
-    InstructionBuffer ib (
-        .clk(clk_in),
-        .rst(rst_in),
-
-        .mc_ready_in(mc_ib_ready),
-        .mc_rw_signal_out(mc_ib_rw_signal),
-        .mc_address_out(mc_ib_address),
-        .mc_data_in(mc_ib_data),
-
-        .iq_address_in(ib_fet_address),
-        .iq_ready_out(ib_fet_ready),
-        .iq_instruction_out(ib_fet_instruction)
+        .fet_request_signal_in(fet_mc_request_signal),
+        .fet_address_in(fet_mc_address),
+        .fet_ready_out(mc_fet_ready),
+        .fet_instruction_out(mc_fet_instruction)
     );
 
     Fetcher fet (
         .clk(clk_in),
         .rst(rst_in),
         
-        .ib_address_out(ib_fet_address),
-        .ib_ready_in(ib_fet_ready),
-        .ib_instruction_in(ib_fet_instruction),
+        .mc_ready_in(mc_fet_ready),
+        .mc_instruction_in(mc_fet_instruction),
+        .mc_request_signal_out(fet_mc_request_signal),
+        .mc_address_out(fet_mc_address),
 
         .dec_issue_signal_out(fet_dec_issue_signal),
         .dec_inst_out(fet_dec_inst),
@@ -186,6 +194,7 @@ module cpu (
 
         .fet_issue_signal_in(fet_dec_issue_signal),
         .fet_inst_in(fet_dec_inst),
+        .fet_pc_in(fet_dec_pc),
 
         .dis_imm_out(dec_dis_imm),
         .dis_inst_type_out(dec_dis_inst_type),
@@ -221,7 +230,7 @@ module cpu (
         .rob_Vj_ready_in(dec_rob_Vj_ready),
         .rob_Vk_ready_in(dec_rob_Vk_ready),
         .rob_Vj_in(dec_rob_Vj),
-        .rob_Vk_in(dec_rob_Qk)
+        .rob_Vk_in(dec_rob_Vk)
     );
 
     Dispatcher dis (
@@ -343,7 +352,15 @@ module cpu (
 
         .alu_broadcast_signal_in(alu_broadcast_signal_out),
         .alu_result_in(alu_result_out),
-        .alu_dest_tag_in(alu_dest_tag_out)
+        .alu_dest_tag_in(alu_dest_tag_out),
+
+        .mc_ready_in(mc_lsb_ready),
+        .mc_data_in(mc_lsb_data),
+        .mc_request_signal_out(lsb_mc_request_signal),
+        .mc_rw_signal_out(lsb_mc_rw_signal),
+        .mc_address_out(lsb_mc_address),
+        .mc_goal_out(lsb_mc_goal),
+        .mc_data_out(lsb_mc_data)
     );
 
     ReorderBuffer rob (
