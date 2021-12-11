@@ -12,10 +12,8 @@ module RegisterFile (
     input  wire                    clk,
     input  wire                    rst,
 
-    // ReorderBuffer
-    input  wire [`ROB_TAG_RANGE]   dis_tag_in,
-
     // Decoder
+    input  wire [`ROB_TAG_RANGE]   dec_next_tag_in,
     input  wire [`REG_INDEX_RANGE] dec_rs1_in,
     input  wire [`REG_INDEX_RANGE] dec_rs2_in,
     input  wire [`REG_INDEX_RANGE] dec_rd_in,
@@ -24,9 +22,9 @@ module RegisterFile (
     output wire [`WORD_RANGE]      dec_Vk_out, // value of rs2
     output wire [`ROB_TAG_RANGE]   dec_Qj_out, // tag of rs1
     output wire [`ROB_TAG_RANGE]   dec_Qk_out, // tag of rs2
-    output wire [`ROB_TAG_RANGE]   dec_dest_out,
 
     // ReorderBuffer
+    input  wire                    rob_rollback_in,
     input  wire                    rob_commit_signal_in,
     input  wire [`ROB_TAG_RANGE]   rob_commit_tag_in,
     input  wire [`WORD_RANGE]      rob_commit_data_in,
@@ -40,7 +38,6 @@ module RegisterFile (
     
     integer i;
 
-    assign dec_dest_out = dis_tag_in;
     assign dec_Vj_out = busy[dec_rs1_in] ? `ZERO_WORD : value[dec_rs1_in];
     assign dec_Qj_out = busy[dec_rs1_in] ? rob_tag[dec_rs1_in] : `NULL_TAG;
     assign dec_Vk_out = busy[dec_rs2_in] ? `ZERO_WORD : value[dec_rs2_in];
@@ -54,12 +51,17 @@ module RegisterFile (
                 busy[i] <= `FALSE;
                 rob_tag[i] <= `NULL_TAG;
             end
+        end else if (rob_rollback_in) begin
+            for (i = 0; i < `RF_CAPACITY; i = i + 1) begin
+                busy[i] <= `FALSE;
+                rob_tag[i] <= `NULL_TAG;
+            end
         end else begin
             // reg 0 cannot be occupied
             for (i = 1; i < `RF_CAPACITY; i = i + 1) begin
                 if (dec_occupy_rd_in && dec_rd_in == i) begin
                     busy[i] <= `TRUE;
-                    rob_tag[i] <= dis_tag_in; // straightly cover original tag
+                    rob_tag[i] <= dec_next_tag_in; // straightly cover original tag
                 end
             end
             if (rob_commit_signal_in) begin

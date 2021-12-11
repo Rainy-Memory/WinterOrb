@@ -28,17 +28,17 @@
 `define ROB_TAG_LEN     4 // @see ROB_CAPACITY
 
 // ranges
-`define RAM_DATA_RANGE      `RAM_DATA_LEN - 1 : 0
-`define WORD_RANGE                         31 : 0
-`define RF_RANGE             `RF_CAPACITY - 1 : 0
-`define RS_RANGE             `RS_CAPACITY - 1 : 0
-`define LSB_RANGE           `LSB_CAPACITY - 1 : 0
-`define LSB_INDEX_RANGE                     4 : 0
-`define ROB_RANGE           `ROB_CAPACITY - 1 : 0
-`define ROB_TAG_RANGE        `ROB_TAG_LEN - 1 : 0
-`define INNER_INST_RANGE                   39 : 0
-`define REG_INDEX_RANGE                     4 : 0 // @see ZERO_REG_INDEX
-`define SHAMT_RANGE                         4 : 0
+`define RAM_DATA_RANGE      `RAM_DATA_LEN - 1:0
+`define WORD_RANGE                         31:0
+`define RF_RANGE             `RF_CAPACITY - 1:0
+`define RS_RANGE             `RS_CAPACITY - 1:0
+`define LSB_RANGE           `LSB_CAPACITY - 1:0
+`define LSB_INDEX_RANGE                     4:0
+`define ROB_RANGE           `ROB_CAPACITY - 1:0
+`define ROB_TAG_RANGE        `ROB_TAG_LEN - 1:0
+`define INNER_INST_RANGE                    5:0
+`define REG_INDEX_RANGE                     4:0 // @see ZERO_REG_INDEX
+`define SHAMT_RANGE                         4:0
 
 // opcode
 `define LUI_OPCODE         7'b0110111
@@ -90,43 +90,42 @@
 `define ZERO_FUNCT7   7'b0000000
 `define ONE_FUNCT7    7'b0100000
 
-// using blank to ensure fix-length of inner instruction identifier
 // @see INNER_INST_RANGE
-`define NOP     "NOP  "
-`define LUI     "LUI  "
-`define AUIPC   "AUIPC"
-`define JAL     "JAL  "
-`define JALR    "JALR "
-`define BEQ     "BEQ  "
-`define BNE     "BNE  "
-`define BLT     "BLT  "
-`define BGE     "BGE  "
-`define BLTU    "BLTU "
-`define BGEU    "BGEU "
-`define LB      "LB   "
-`define LH      "LH   "
-`define LW      "LW   "
-`define LBU     "LBU  "
-`define LHU     "LHU  "
-`define SB      "SB   "
-`define SH      "SH   "
-`define SW      "SW   "
-`define ADDI    "ADDI "
-`define SLTI    "SLTI "
-`define SLTIU   "SLTIU"
-`define XORI    "XORI "
-`define ORI     "ORI  "
-`define ANDI    "ANDI "
-`define SLLI    "SLLI "
-`define SRLI    "SRLI "
-`define SRAI    "SRAI "
-`define ADD     "ADD  "
-`define SUB     "SUB  "
-`define SLL     "SLL  "
-`define SLT     "SLT  "
-`define SLTU    "SLTU "
-`define XOR     "XOR  "
-`define SRL     "SRL  "
-`define SRA     "SRA  "
-`define OR      "OR   "
-`define AND     "AND  "
+`define NOP     6'h0
+`define LUI     6'h1
+`define AUIPC   6'h2
+`define JAL     6'h3
+`define JALR    6'h4
+`define BEQ     6'h5
+`define BNE     6'h6
+`define BLT     6'h7
+`define BGE     6'h8
+`define BLTU    6'h9
+`define BGEU    6'hA
+`define LB      6'hB
+`define LH      6'hC
+`define LW      6'hD
+`define LBU     6'hE
+`define LHU     6'hF
+`define SB      6'h10
+`define SH      6'h11
+`define SW      6'h12
+`define ADDI    6'h13
+`define SLTI    6'h14
+`define SLTIU   6'h15
+`define XORI    6'h16
+`define ORI     6'h17
+`define ANDI    6'h18
+`define SLLI    6'h19
+`define SRLI    6'h1A
+`define SRAI    6'h1B
+`define ADD     6'h1C
+`define SUB     6'h1D
+`define SLL     6'h1E
+`define SLT     6'h1F
+`define SLTU    6'h20
+`define XOR     6'h21
+`define SRL     6'h22
+`define SRA     6'h23
+`define OR      6'h24
+`define AND     6'h25

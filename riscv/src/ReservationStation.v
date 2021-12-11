@@ -1,29 +1,44 @@
 `include "header.v"
 
+/*
+ * module ReservationStation
+ * --------------------------------------------------
+ * This module inplements ReservationStation in tomasulo's
+ * algorithm. By store issued instruction and wait them
+ * for ready (Qj, Qk finished their compute), this module
+ * support out-of-order instruction execution.
+ */
+
 module ReservationStation (
     input  wire                     clk,
     input  wire                     rst,
 
+    output wire                     full_out,
+
     // Dispatcher
     input  wire                     dis_new_inst_signal_in,
-    input  wire [`INNER_INST_RANGE] dis_inst_in,
-    input  wire [`WORD_RANGE]       dis_imm_in,
-    input  wire [`WORD_RANGE]       dis_pc_in,
-    input  wire [`ROB_TAG_RANGE]    dis_dest_in,
 
     // Decoder
+    input  wire [`ROB_TAG_RANGE]    dec_next_tag_in,
+    input  wire [`INNER_INST_RANGE] dec_op_in,
     input  wire [`WORD_RANGE]       dec_Vj_in,
     input  wire [`WORD_RANGE]       dec_Vk_in,
     input  wire [`ROB_TAG_RANGE]    dec_Qj_in,
     input  wire [`ROB_TAG_RANGE]    dec_Qk_in,
+    input  wire [`WORD_RANGE]       dec_imm_in,
+    input  wire [`WORD_RANGE]       dec_pc_in,
 
     // ArithmeticLogicUnit
+    output reg                      alu_calculate_signal_out,
     output reg  [`INNER_INST_RANGE] alu_op_out,
     output reg  [`WORD_RANGE]       alu_imm_out,
     output reg  [`WORD_RANGE]       alu_pc_out,
-    output reg  [`WORD_RANGE]       alu_lhs_out,
-    output reg  [`WORD_RANGE]       alu_rhs_out,
+    output reg  [`WORD_RANGE]       alu_rs1val_out,
+    output reg  [`WORD_RANGE]       alu_rs2val_out,
     output reg  [`ROB_TAG_RANGE]    alu_dest_out,
+
+    // ReorderBuffer
+    input  wire                     rob_rollback_in,
 
     // BroadCast (ArithmeticLogicUnit && LoadStoreBuffer)
     input  wire                     alu_broadcast_signal_in,
@@ -48,9 +63,12 @@ module ReservationStation (
     reg [`ROB_TAG_RANGE] Qj [`RS_RANGE];
     reg [`ROB_TAG_RANGE] Qk [`RS_RANGE];
     reg [`REG_INDEX_RANGE] dest [`RS_RANGE];
+
+    assign full_out = next_free_entry == `NULL_ENTRY;
     
     always @(posedge clk) begin
-        if (rst) begin
+        alu_calculate_signal_out <= `FALSE;
+        if (rst || rob_rollback_in) begin
             for (i = 0; i < `RS_CAPACITY; i = i + 1) begin
                 busy[i] <= `FALSE;
                 op[i] <= `NOP;
@@ -65,23 +83,24 @@ module ReservationStation (
         end else begin
             if (dis_new_inst_signal_in) begin
                 busy[next_free_entry] <= `TRUE;
-                op[next_free_entry] <= dis_inst_in;
-                imm[i] <= dis_imm_in;
-                pc[i] <= dis_pc_in;
+                op[next_free_entry] <= dec_op_in;
+                imm[next_free_entry] <= dec_imm_in;
+                pc[next_free_entry] <= dec_pc_in;
                 Vj[next_free_entry] <= dec_Vj_in;
                 Vk[next_free_entry] <= dec_Vk_in;
                 Qj[next_free_entry] <= dec_Qj_in;
                 Qk[next_free_entry] <= dec_Qk_in;
-                dest[next_free_entry] <= dis_dest_in;
+                dest[next_free_entry] <= dec_next_tag_in;
             end
             if (next_ready != `NULL_ENTRY) begin
+                alu_calculate_signal_out <= `TRUE;
+                busy[next_ready] <= `FALSE;
                 alu_op_out <= op[next_ready];
                 alu_imm_out <= imm[next_ready];
                 alu_pc_out <= pc[next_ready];
-                alu_lhs_out <= Vj[next_ready];
-                alu_rhs_out <= Vk[next_ready];
+                alu_rs1val_out <= Vj[next_ready];
+                alu_rs2val_out <= Vk[next_ready];
                 alu_dest_out <= dest[next_ready];
-                busy[next_ready] <= `FALSE;
             end
             // update data by snoopy on cdb (i.e., alu && lsb)
             if (alu_broadcast_signal_in) begin

@@ -1,46 +1,59 @@
 `include "header.v"
 
+/*
+ * module LoadStoreBuffer
+ * --------------------------------------------------
+ * This module implements LoadStoreBuffer in tomasulo's
+ * algorithm. By maintaining a circular queue, this
+ * module handle all ram interaction in order.
+ */
+
 module LoadStoreBuffer (
-    input  wire                     clk,
-    input  wire                     rst,
+    input  wire                  clk,
+    input  wire                  rst,
+
+    output wire                  full_out,
     
     // ReservationStation && LoadStoreBuffer && ReorderBuffer
-    output reg                      broadcast_signal_out,
-    output reg  [`WORD_RANGE]       result_out,
-    output reg  [`ROB_TAG_RANGE]    dest_tag_out,
+    output reg                   broadcast_signal_out,
+    output reg  [`WORD_RANGE]    result_out,
+    output reg  [`ROB_TAG_RANGE] dest_tag_out,
 
     // Dispatcher
-    input  wire                     dis_new_inst_signal_in,
-    input  wire                     dis_load_store_signal_in,
-    input  wire [2:0]               dis_goal_in,
-    input  wire [`INNER_INST_RANGE] dis_inst_in,
-    input  wire [`WORD_RANGE]       dis_imm_in,
-    input  wire [`ROB_TAG_RANGE]    dis_dest_in,
-    input  wire [`ROB_TAG_RANGE]    dis_tag_in,
+    input  wire                  dis_new_inst_signal_in,
+    input  wire                  dis_load_store_signal_in,
 
     // Decoder
-    input  wire [`WORD_RANGE]       dec_Vj_in,
-    input  wire [`WORD_RANGE]       dec_Vk_in,
-    input  wire [`ROB_TAG_RANGE]    dec_Qj_in,
-    input  wire [`ROB_TAG_RANGE]    dec_Qk_in,
+    input  wire [`ROB_TAG_RANGE] dec_next_tag_in,
+    input  wire [`WORD_RANGE]    dec_Vj_in,
+    input  wire [`WORD_RANGE]    dec_Vk_in,
+    input  wire [`ROB_TAG_RANGE] dec_Qj_in,
+    input  wire [`ROB_TAG_RANGE] dec_Qk_in,
+    input  wire [`WORD_RANGE]    dec_imm_in,
+    input  wire [2:0]            dec_goal_in,
 
     // BroadCast ArithmeticLogicUnit
-    input  wire                     alu_broadcast_signal_in,
-    input  wire [`WORD_RANGE]       alu_result_in,
-    input  wire [`ROB_TAG_RANGE]    alu_dest_tag_in,
+    input  wire                  alu_broadcast_signal_in,
+    input  wire [`WORD_RANGE]    alu_result_in,
+    input  wire [`ROB_TAG_RANGE] alu_dest_tag_in,
+
+    // ReorderBuffer
+    input  wire                  rob_rollback_in,
+    input  wire                  rob_commit_signal_in,
+    input  wire [`ROB_TAG_RANGE] rob_commit_tag_in,
 
     // MemoryController
-    input  wire                     mc_ready_in,
-    input  wire [`WORD_RANGE]       mc_data_in,
-    output reg                      mc_request_signal_out,
-    output reg                      mc_rw_signal_out,
-    output reg  [`WORD_RANGE]       mc_address_out,
-    output reg  [2:0]               mc_goal_out, // LB: 1, LHW: 2, LW: 4
-    output reg  [`WORD_RANGE]       mc_data_out
+    input  wire                  mc_ready_in,
+    input  wire [`WORD_RANGE]    mc_data_in,
+    output reg                   mc_request_out,
+    output reg                   mc_rw_signal_out,
+    output reg  [`WORD_RANGE]    mc_address_out,
+    output reg  [2:0]            mc_goal_out, // LB: 1, LHW: 2, LW: 4
+    output reg  [`WORD_RANGE]    mc_data_out
 );
 
-    reg [`LSB_INDEX_RANGE] head, tail;
-    reg [`WORD_RANGE] inst [`LSB_RANGE];
+    reg [`LSB_INDEX_RANGE] head, tail, last_commit;
+    wire [`LSB_INDEX_RANGE] head_next, tail_next;
     reg load_store_flag [`LSB_RANGE]; // LOAD -> 0, STORE -> 1
     reg commit_flag [`LSB_RANGE];
     reg [`ROB_TAG_RANGE] rob_tag [`LSB_RANGE];
@@ -52,31 +65,51 @@ module LoadStoreBuffer (
     reg [2:0] load_store_goal [`LSB_RANGE];
     wire ready [`LSB_RANGE];
 
+    assign head_next = head == `LSB_CAPACITY ? 0 : head + 1;
+    assign tail_next = tail == `LSB_CAPACITY ? 0 : tail + 1;
+    assign full_out = head == tail_next;
+
     integer i;
 
+    localparam IDLE = 2'b0, LOAD = 2'b1, STORE = 2'b10;
     reg [1:0] status;
     reg [`ROB_TAG_RANGE] current_tag;
-    localparam IDLE = 2'b0, LOAD = 2'b1, STORE = 2'b10;
 
     always @(posedge clk) begin
-        mc_request_signal_out <= `FALSE;
+        mc_request_out <= `FALSE;
         broadcast_signal_out <= `FALSE;
         if (rst) begin
-            head <= 1;
-            tail <= 1;
+            head <= 0;
+            tail <= 0;
+            status <= IDLE;
+            current_tag <= `NULL_TAG;
+        end else if (rob_rollback_in) begin
+            tail <= last_commit;
+            if (status == LOAD) begin
+                status <= IDLE;
+                current_tag <= `NULL_TAG;
+            end
         end else begin
             if (dis_new_inst_signal_in) begin
-                inst[tail] <= dis_inst_in;
-                load_store_flag[tail] <= dis_load_store_signal_in;
-                commit_flag[tail] <= `FALSE;
-                rob_tag[tail] <= dis_tag_in;
-                imm[tail] <= dis_imm_in;
-                Vj[tail] <= dec_Vj_in;
-                Vk[tail] <= dec_Vk_in;
-                Qj[tail] <= dec_Qj_in;
-                Qk[tail] <= dec_Qk_in;
-                load_store_goal[tail] <= dis_goal_in;
-                tail <= tail == `LSB_CAPACITY ? 1 : tail + 1;
+                load_store_flag[tail_next] <= dis_load_store_signal_in;
+                commit_flag[tail_next] <= `FALSE;
+                rob_tag[tail_next] <= dec_next_tag_in;
+                imm[tail_next] <= dec_imm_in;
+                Vj[tail_next] <= dec_Vj_in;
+                Vk[tail_next] <= dec_Vk_in;
+                Qj[tail_next] <= dec_Qj_in;
+                Qk[tail_next] <= dec_Qk_in;
+                load_store_goal[tail_next] <= dec_goal_in;
+                tail <= tail_next;
+            end
+            // waiting for commit signal
+            if (rob_commit_signal_in) begin
+                for (i = 0; i < `LSB_CAPACITY; i = i + 1) begin
+                    if (rob_tag[i] == rob_commit_tag_in) begin
+                        commit_flag[i] <= `TRUE;
+                        last_commit <= i;
+                    end
+                end
             end
             // update data by snoopy on cdb (i.e., alu)
             if (alu_broadcast_signal_in) begin
@@ -91,21 +124,16 @@ module LoadStoreBuffer (
                     end
                 end
             end
-
             // issue queue head
-            if (status == IDLE && ready[head]) begin
-                mc_request_signal_out <= `TRUE;
-                mc_goal_out <= load_store_goal[head];
-                mc_rw_signal_out <= load_store_flag[head];
-                current_tag <= rob_tag[head];
-                mc_address_out <= Vj[head] + imm[head];
-                if (load_store_flag[head]) begin // store
-                    status <= STORE;
-                    mc_data_out <= Vk[head];
-                end else begin // load
-                    status <= LOAD;
-                end
-                head <= head == `LSB_CAPACITY ? 1 : head + 1;
+            if (status == IDLE && ready[head_next]) begin
+                mc_request_out <= `TRUE;
+                mc_goal_out <= load_store_goal[head_next];
+                mc_rw_signal_out <= load_store_flag[head_next];
+                current_tag <= rob_tag[head_next];
+                mc_address_out <= Vj[head_next] + imm[head_next];
+                mc_data_out <= Vk[head_next];
+                status <= load_store_flag[head_next] ? STORE : LOAD;
+                head <= head_next;
             end else if (status == STORE) begin
                 if (mc_ready_in) begin
                     status <= IDLE;

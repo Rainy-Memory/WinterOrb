@@ -3,9 +3,12 @@
 /*
  * module MemoryController
  * --------------------------------------------------
- * This module implements a simple interface with
- * <ram.v>, for ram does not support read and write at
- * the same time.
+ * This module implements an interface with <ram.v>,
+ * for ram does not support read and write at the same
+ * time and only transfer a byte at once. This module
+ * accepts ram io request from Fetcher and LoadStoreBuffer,
+ * store their request if current status is busy, and notice
+ * them when finished.
  */
 
 module MemoryController (
@@ -18,14 +21,17 @@ module MemoryController (
     output reg  [`WORD_RANGE]     ram_address_out,
     output reg                    ram_rw_signal_out, // 1->write, 0->read
 
+    // ReorderBuffer
+    input  wire                   rob_rollback_in,
+
     // Fetcher
-    input  wire                   fet_request_signal_in,
+    input  wire                   fet_request_in,
     input  wire [`WORD_RANGE]     fet_address_in,
     output reg                    fet_ready_out,
     output reg  [`WORD_RANGE]     fet_instruction_out,
 
     // LoadStoreBuffer
-    input  wire                   lsb_request_signal_in,
+    input  wire                   lsb_request_in,
     input  wire                   lsb_rw_signal_in,
     input  wire [`WORD_RANGE]     lsb_address_in,
     input  wire [2:0]             lsb_goal_in, // LB: 1, LHW: 2, LW: 4
@@ -39,6 +45,7 @@ module MemoryController (
 
     localparam NONE = 2'b00, INSTRUCTION = 2'b01, LOAD = 2'b10, STORE = 2'b11;
     reg [1:0] working_on;
+
     reg waiting; // read from ram takes 2 cycles
     reg [2:0] goal;
     reg [2:0] current;
@@ -46,8 +53,8 @@ module MemoryController (
     reg [`WORD_RANGE] current_data;
     reg [`WORD_RANGE] buffer;
 
-    reg have_instruction_request;
-    reg [`WORD_RANGE] instruction_address;
+    reg have_inst_request;
+    reg [`WORD_RANGE] inst_address;
 
     reg have_load_request;
     reg [`WORD_RANGE] load_address;
@@ -58,23 +65,40 @@ module MemoryController (
     reg [2:0] store_goal; // LB: 1, LHW: 2, LW: 4
     reg [`WORD_RANGE] store_data;
 
+    // TODO
+    // load:
+    // addr: _ _ _ _
+    // recv:     _ _ _ _
+    // store to io:
+    // addr: _     _     _
+    // scss:       _     _     _
+
     always @(posedge clk) begin
         fet_ready_out <= `FALSE;
         lsb_ready_out <= `FALSE;
         if (rst) begin
             status <= IDLE;
             working_on <= NONE;
-            have_instruction_request <= `FALSE;
+            have_inst_request <= `FALSE;
             have_load_request <= `FALSE;
             have_store_request <= `FALSE;
             buffer <= `ZERO_WORD;
             current <= 3'd0;
-        end else begin
-            if (fet_request_signal_in) begin
-                have_instruction_request <= `TRUE;
-                instruction_address <= fet_address_in;
+        end else if (rob_rollback_in) begin
+            have_inst_request <= `FALSE;
+            have_load_request <= `FALSE;
+            if (working_on == INSTRUCTION || working_on == LOAD) begin
+                status <= IDLE;
+                working_on <= NONE;
+                buffer <= `ZERO_WORD;
+                current <= 3'd0;
             end
-            if (lsb_request_signal_in) begin
+        end else begin
+            if (fet_request_in) begin
+                have_inst_request <= `TRUE;
+                inst_address <= fet_address_in;
+            end
+            if (lsb_request_in) begin
                 // LOAD -> 0, STORE -> 1
                 if (lsb_rw_signal_in) begin // store
                     have_store_request <= `TRUE;
@@ -109,30 +133,30 @@ module MemoryController (
                     current_address <= load_address;
                     ram_rw_signal_out <= `READ;
                     ram_address_out <= load_address;
-                end else if (have_instruction_request) begin
-                    have_instruction_request <= `FALSE;
+                end else if (have_inst_request) begin
+                    have_inst_request <= `FALSE;
                     status <= BUSY;
                     working_on <= INSTRUCTION;
                     waiting <= `TRUE;
-                    goal <= 3'd4; // ib read one instruction (4 byte) at once
-                    current_address <= instruction_address;
+                    goal <= 3'd4; // fetcher read one instruction (4 byte) at once
+                    current_address <= inst_address;
                     ram_rw_signal_out <= `READ;
-                    ram_address_out <= instruction_address;
+                    ram_address_out <= inst_address;
                 end
             end else if (status == BUSY) begin
-                if (waiting) waiting <= `FALSE;
-                else begin
-                    if (working_on == STORE) begin
-                        if (current == goal) begin
-                            status <= FINISH;
-                            current <= 3'd0;
-                        end else begin
-                            ram_rw_signal_out <= `WRITE;
-                            ram_address_out <= current_address + current;
-                            ram_data_out <= current_data[current * `RAM_DATA_LEN +: `RAM_DATA_LEN];
-                            current <= current + 1;
-                        end
-                    end else begin // working_on == INSTRUCTION || LOAD
+                if (working_on == STORE) begin
+                    if (current == goal) begin
+                        status <= FINISH;
+                        current <= 3'd0;
+                    end else begin
+                        ram_rw_signal_out <= `WRITE;
+                        ram_address_out <= current_address + current;
+                        ram_data_out <= current_data[current * `RAM_DATA_LEN +: `RAM_DATA_LEN];
+                        current <= current + 1;
+                    end
+                end else begin // working_on == INSTRUCTION || LOAD
+                    if (waiting) waiting <= `FALSE;
+                    else begin
                         buffer[current * `RAM_DATA_LEN +: `RAM_DATA_LEN] <= ram_data_in;
                         current <= current + 1;
                         if (current == goal - 1) begin
@@ -158,6 +182,7 @@ module MemoryController (
                     buffer <= `ZERO_WORD;
                 end
                 status <= IDLE;
+                working_on <= NONE;
             end
         end
     end
