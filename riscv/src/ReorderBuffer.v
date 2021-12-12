@@ -26,6 +26,7 @@ module ReorderBuffer (
     input  wire [`REG_INDEX_RANGE] dec_rd_in,
     input  wire [`ROB_TAG_RANGE]   dec_Qj_in,
     input  wire [`ROB_TAG_RANGE]   dec_Qk_in,
+    input  wire [`WORD_RANGE]      dec_pc_in,
     output wire [`ROB_TAG_RANGE]   dec_next_tag_out,
     output wire                    dec_Vj_ready_out,
     output wire                    dec_Vk_ready_out,
@@ -44,8 +45,9 @@ module ReorderBuffer (
     input  wire [`ROB_TAG_RANGE]   lsb_dest_tag_in,
 
     // RegisterFile && LoadStoreBuffer
-    output reg                     commit_signal_out,
+    output reg                     commit_rf_signal_out,
     output reg                     commit_lsb_signal_out,
+    output reg  [`WORD_RANGE]      commit_pc_out,
     output reg  [`ROB_TAG_RANGE]   commit_tag_out,
     output reg  [`WORD_RANGE]      commit_data_out,
     output reg  [`REG_INDEX_RANGE] commit_target_out
@@ -62,8 +64,12 @@ module ReorderBuffer (
     reg [`WORD_RANGE] inst [`ROB_RANGE];
     reg [`WORD_RANGE] data [`ROB_RANGE];
     reg [`REG_INDEX_RANGE] dest [`ROB_RANGE];
+    reg [`WORD_RANGE] pc [`ROB_RANGE];
     reg [`WORD_RANGE] predict_pc [`ROB_RANGE];
     reg [`WORD_RANGE] new_pc [`ROB_RANGE];
+
+    reg need_to_rollback;
+    reg [`WORD_RANGE] rollback_pc;
 
     assign dec_Vj_ready_out = ready[dec_Qj_in];
     assign dec_Vk_ready_out = ready[dec_Qk_in];
@@ -77,8 +83,9 @@ module ReorderBuffer (
 
     always @(posedge clk) begin
         rollback_out <= `FALSE;
-        commit_signal_out <= `FALSE;
+        commit_rf_signal_out <= `FALSE;
         commit_lsb_signal_out <= `FALSE;
+        need_to_rollback <= `FALSE;
         if (rst) begin
             tail <= 1;
             head <= 1;
@@ -87,7 +94,28 @@ module ReorderBuffer (
                 inst[i] <= `ZERO_WORD;
                 data[i] <= `ZERO_WORD;
                 dest[i] <= `ZERO_REG_INDEX;
+                pc[i] <= `ZERO_WORD;
                 predict_pc[i] <= `ZERO_WORD;
+                new_pc[i] <= `ZERO_WORD;
+            end
+        end else if (need_to_rollback) begin
+            // rollback:
+            // (1) reset pc
+            // (2) execute all committed instruction in lsb
+            // (3) keep register value in RegisterFile
+            // (4) rst all other modules
+            rollback_out <= `TRUE;
+            fet_rollback_pc_out <= rollback_pc;
+            tail <= 1;
+            head <= 1;
+            for (i = 0; i < `ROB_CAPACITY; i = i + 1) begin
+                ready[i] <= `FALSE;
+                inst[i] <= `ZERO_WORD;
+                data[i] <= `ZERO_WORD;
+                dest[i] <= `ZERO_REG_INDEX;
+                pc[i] <= `ZERO_WORD;
+                predict_pc[i] <= `ZERO_WORD;
+                new_pc[i] <= `ZERO_WORD;
             end
         end else begin
             if (dec_issue_in) begin
@@ -96,6 +124,7 @@ module ReorderBuffer (
                 inst[tail_next] <= dec_inst_in;
                 data[tail_next] <= `ZERO_WORD;
                 dest[tail_next] <= dec_rd_in;
+                pc[tail_next] <= dec_pc_in;
                 predict_pc[tail_next] <= dec_predict_pc_in;
                 tail <= tail_next;
             end
@@ -113,10 +142,11 @@ module ReorderBuffer (
             // store will automatically committed when it reach rob head
             if (head != tail && (ready[head_next] || inst[head_next][6:0] == `STORE_OPCODE)) begin
                 ready[head_next] <= `FALSE;
-                commit_signal_out <= `TRUE;
+                commit_rf_signal_out <= `TRUE;
                 commit_lsb_signal_out <= inst[head_next][6:0] == `STORE_OPCODE || inst[head_next][6:0] == `LOAD_OPCODE;
+                commit_pc_out <= pc[head_next];
                 commit_tag_out <= head_next;
-                // TODO broadcast rob as well
+                // TODO broadcast rob as well to avoid cannot listen alu/lsb
                 commit_data_out <= data[head_next];
                 commit_target_out <= dest[head_next];
                 head <= head_next;
@@ -124,22 +154,8 @@ module ReorderBuffer (
                     inst[head_next][6:0] == `AUIPC_OPCODE ||
                     inst[head_next][6:0] == `BRANCH_OPCODE) begin
                     if (new_pc[head_next] != predict_pc[head_next]) begin
-                        // rollback:
-                        // (1) reset pc
-                        // (2) execute all committed instruction in lsb
-                        // (3) keep register value in RegisterFile
-                        // (4) rst all other modules
-                        rollback_out <= `TRUE;
-                        fet_rollback_pc_out <= new_pc[head_next];
-                        tail <= 1;
-                        head <= 1;
-                        for (i = 0; i < `ROB_CAPACITY; i = i + 1) begin
-                            ready[i] <= `FALSE;
-                            inst[i] <= `ZERO_WORD;
-                            data[i] <= `ZERO_WORD;
-                            dest[i] <= `ZERO_REG_INDEX;
-                            predict_pc[i] <= `ZERO_WORD;
-                        end
+                        need_to_rollback <= `TRUE;
+                        rollback_pc <= new_pc[head_next];
                     end
                 end
             end

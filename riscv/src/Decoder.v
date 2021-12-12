@@ -36,13 +36,13 @@ module Decoder (
     output wire [`ROB_TAG_RANGE]    Qj_out,
     output wire [`ROB_TAG_RANGE]    Qk_out,
     output reg  [`WORD_RANGE]       imm_out,
+    output wire [`WORD_RANGE]       pc_out,
 
     // ReservationStation & LoadStoreBuffer & RegisterFile
     output wire [`ROB_TAG_RANGE]    next_tag_out,
 
     // ReservationStation
     output reg  [1:0]               rs_have_source_register_out,
-    output wire [`WORD_RANGE]       rs_pc_out,
 
     // LoadStoreBuffer
     output reg  [2:0]               lsb_goal_out,
@@ -73,7 +73,7 @@ module Decoder (
 
     assign dis_ready_out = fet_issue_in;
 
-    assign rs_pc_out = fet_pc_in;
+    assign pc_out = fet_pc_in;
 
     assign rf_rs1_out = fet_inst_in[19:15];
     assign rf_rs2_out = fet_inst_in[24:20];
@@ -81,15 +81,15 @@ module Decoder (
 
     assign rob_Qj_out = rf_Qj_in;
     assign rob_Qk_out = rf_Qk_in;
-    assign Vj_out   = rf_Qj_in == `NULL_TAG ?  rf_Vj_in : (rob_Vj_ready_in ? rob_Vj_in : `ZERO_WORD);
-    assign Vk_out   = rf_Qk_in == `NULL_TAG ?  rf_Vk_in : (rob_Vk_ready_in ? rob_Vk_in : `ZERO_WORD);
-    assign Qj_out   = rf_Qj_in == `NULL_TAG ? `NULL_TAG : (rob_Vj_ready_in ? `NULL_TAG : rf_Qj_in);
-    assign Qk_out   = rf_Qk_in == `NULL_TAG ? `NULL_TAG : (rob_Vk_ready_in ? `NULL_TAG : rf_Qk_in);
+    assign Vj_out     = rf_Qj_in == `NULL_TAG ?  rf_Vj_in : (rob_Vj_ready_in ? rob_Vj_in : `ZERO_WORD);
+    assign Vk_out     = rf_Qk_in == `NULL_TAG ?  rf_Vk_in : (rob_Vk_ready_in ? rob_Vk_in : `ZERO_WORD);
+    assign Qj_out     = rf_Qj_in == `NULL_TAG ? `NULL_TAG : (rob_Vj_ready_in ? `NULL_TAG : rf_Qj_in);
+    assign Qk_out     = rf_Qk_in == `NULL_TAG ? `NULL_TAG : (rob_Vk_ready_in ? `NULL_TAG : rf_Qk_in);
 
     assign rob_issue_out      = fet_issue_in;
     assign rob_predict_pc_out = fet_predict_pc_in;
-    assign rob_inst_out = fet_inst_in;
-    assign rob_rd_out   = rf_rd_out;
+    assign rob_inst_out       = fet_inst_in;
+    assign rob_rd_out         = rf_rd_out;
 
     always @(*) begin
         dis_to_lsb_signal_out = {`FALSE, 1'b0};

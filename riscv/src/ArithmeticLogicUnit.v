@@ -33,6 +33,7 @@ module ArithmeticLogicUnit (
     assign broadcast_signal_out = rs_calculate_signal_in;
 
     always @(*) begin
+        rob_new_pc_out = rs_pc_in + 4;
         case (rs_op_in)
             `LUI: result_out = rs_imm_in;
             `AUIPC: begin
@@ -84,9 +85,9 @@ module ArithmeticLogicUnit (
             `SRA:   result_out = rs_rs1val_in >>> rs_rs2val_in;
             `SLT:   result_out = $signed(rs_rs1val_in) < $signed(rs_rs2val_in) ? 1 : 0;
             `SLTU:  result_out = rs_rs1val_in < rs_rs2val_in ? 1 : 0;
-            `XORI:  result_out = rs_rs1val_in ^ rs_rs2val_in;
-            `ORI:   result_out = rs_rs1val_in | rs_rs2val_in;
-            `ANDI:  result_out = rs_rs1val_in & rs_rs2val_in;
+            `XOR:   result_out = rs_rs1val_in ^ rs_rs2val_in;
+            `OR:    result_out = rs_rs1val_in | rs_rs2val_in;
+            `AND:   result_out = rs_rs1val_in & rs_rs2val_in;
             default: begin
                 result_out = `ZERO_WORD;
                 rob_new_pc_out = rs_pc_in;

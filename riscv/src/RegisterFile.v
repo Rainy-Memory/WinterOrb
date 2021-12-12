@@ -26,6 +26,7 @@ module RegisterFile (
     // ReorderBuffer
     input  wire                    rob_rollback_in,
     input  wire                    rob_commit_signal_in,
+    input  wire [`WORD_RANGE]      rob_commit_pc_in,
     input  wire [`ROB_TAG_RANGE]   rob_commit_tag_in,
     input  wire [`WORD_RANGE]      rob_commit_data_in,
     input  wire [`REG_INDEX_RANGE] rob_commit_target_in
@@ -41,6 +42,11 @@ module RegisterFile (
     assign dec_Qj_out = busy[dec_rs1_in] ? rob_tag[dec_rs1_in] : `NULL_TAG;
     assign dec_Vk_out = busy[dec_rs2_in] ? `ZERO_WORD : value[dec_rs2_in];
     assign dec_Qk_out = busy[dec_rs2_in] ? rob_tag[dec_rs2_in] : `NULL_TAG;
+
+    integer rf_log, cnt;
+
+    initial rf_log = $fopen("bin/rf_log.txt", "w");
+    initial cnt = 0;
 
     always @(posedge clk) begin
         if (rst) begin
@@ -70,6 +76,12 @@ module RegisterFile (
                         rob_tag[rob_commit_target_in] <= `NULL_TAG; 
                     end
                     value[rob_commit_target_in] <= rob_commit_data_in;
+                end
+                $fdisplay(rf_log, "cnt: %d", cnt);
+                cnt <= cnt + 1;
+                $fdisplay(rf_log, "pc: %h", rob_commit_pc_in);
+                for (i = 0; i < `RF_CAPACITY; i = i + 1) begin
+                    $fdisplay(rf_log, "reg %d: %h", i, i == rob_commit_target_in && busy[i] ? rob_commit_data_in : value[i]);
                 end
             end
         end

@@ -69,6 +69,7 @@ module MemoryController (
     // load:
     // addr: _ _ _ _
     // recv:     _ _ _ _
+    // io: extrally wait 1 cycle each time
     // store to io:
     // addr: _     _     _
     // scss:       _     _     _
@@ -157,7 +158,7 @@ module MemoryController (
                             ram_address_out <= current_address + current;
                             ram_data_out <= current_data[current * `RAM_DATA_LEN +: `RAM_DATA_LEN];
                             current <= current + 1;
-                        end 
+                        end
                     end
                 end else begin // working_on == INSTRUCTION || LOAD
                     if (waiting) waiting <= `FALSE;

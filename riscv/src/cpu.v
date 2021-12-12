@@ -87,7 +87,6 @@ module cpu (
 
     // Decoder to ReservationStation
     wire [1:0]               dec_rs_have_source_register;
-    wire [`WORD_RANGE]       dec_rs_pc;
 
     // Decoder to RegisterFile
     wire [`REG_INDEX_RANGE] dec_rf_rs1;
@@ -108,6 +107,7 @@ module cpu (
     wire [`ROB_TAG_RANGE]    dec_Qj_out;
     wire [`ROB_TAG_RANGE]    dec_Qk_out;
     wire [`WORD_RANGE]       dec_imm_out;
+    wire [`WORD_RANGE]       dec_pc_out;
     wire [`ROB_TAG_RANGE]    dec_next_tag_out;
 
     // Decoder to ReorderBuffer
@@ -142,8 +142,9 @@ module cpu (
     wire rob_rollback_out;
 
     // ReorderBuffer to RegisterFile && LoadStoreBuffer
-    wire                    rob_commit_signal_out;
+    wire                    rob_commit_rf_signal_out;
     wire                    rob_commit_lsb_signal_out;
+    wire [`WORD_RANGE]      rob_commit_pc_out;
     wire [`ROB_TAG_RANGE]   rob_commit_tag_out;
     wire [`WORD_RANGE]      rob_commit_data_out;
     wire [`REG_INDEX_RANGE] rob_commit_target_out;
@@ -241,11 +242,11 @@ module cpu (
         .Qj_out(dec_Qj_out),
         .Qk_out(dec_Qk_out),
         .imm_out(dec_imm_out),
+        .pc_out(dec_pc_out),
 
         .next_tag_out(dec_next_tag_out),
 
         .rs_have_source_register_out(dec_rs_have_source_register),
-        .rs_pc_out(dec_rs_pc),
         
         .lsb_goal_out(dec_lsb_goal),
 
@@ -287,7 +288,8 @@ module cpu (
         .dec_Qk_out(rf_dec_Qk),
 
         .rob_rollback_in(rob_rollback_out),
-        .rob_commit_signal_in(rob_commit_signal_out),
+        .rob_commit_signal_in(rob_commit_rf_signal_out),
+        .rob_commit_pc_in(rob_commit_pc_out),
         .rob_commit_tag_in(rob_commit_tag_out),
         .rob_commit_data_in(rob_commit_data_out),
         .rob_commit_target_in(rob_commit_target_out)
@@ -324,7 +326,7 @@ module cpu (
         .dec_Qj_in(dec_Qj_out),
         .dec_Qk_in(dec_Qk_out),
         .dec_imm_in(dec_imm_out),
-        .dec_pc_in(dec_rs_pc),
+        .dec_pc_in(dec_pc_out),
         .dec_have_source_register_in(dec_rs_have_source_register),
         
         .alu_calculate_signal_out(rs_alu_calculate_signal),
@@ -399,6 +401,7 @@ module cpu (
         .dec_rd_in(dec_rob_rd),
         .dec_Qj_in(dec_rob_Qj),
         .dec_Qk_in(dec_rob_Qk),
+        .dec_pc_in(dec_pc_out),
         .dec_next_tag_out(rob_dec_next_tag),
         .dec_Vj_ready_out(rob_dec_Vj_ready),
         .dec_Vk_ready_out(rob_dec_Vk_ready),
@@ -414,8 +417,9 @@ module cpu (
         .lsb_result_in(lsb_result_out),
         .lsb_dest_tag_in(lsb_dest_tag_out),
 
-        .commit_signal_out(rob_commit_signal_out),
+        .commit_rf_signal_out(rob_commit_rf_signal_out),
         .commit_lsb_signal_out(rob_commit_lsb_signal_out),
+        .commit_pc_out(rob_commit_pc_out),
         .commit_tag_out(rob_commit_tag_out),
         .commit_data_out(rob_commit_data_out),
         .commit_target_out(rob_commit_target_out)
