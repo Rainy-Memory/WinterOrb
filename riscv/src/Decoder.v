@@ -30,6 +30,7 @@ module Decoder (
     output reg                      rf_occupy_rd_out,
 
     // ReservationStation & LoadStoreBuffer
+    output reg  [`INNER_INST_RANGE] op_out,
     output wire [`WORD_RANGE]       Vj_out,
     output wire [`WORD_RANGE]       Vk_out,
     output wire [`ROB_TAG_RANGE]    Qj_out,
@@ -40,7 +41,7 @@ module Decoder (
     output wire [`ROB_TAG_RANGE]    next_tag_out,
 
     // ReservationStation
-    output reg  [`INNER_INST_RANGE] rs_op_out,
+    output reg  [1:0]               rs_have_source_register_out,
     output wire [`WORD_RANGE]       rs_pc_out,
 
     // LoadStoreBuffer
@@ -72,77 +73,83 @@ module Decoder (
 
     assign dis_ready_out = fet_issue_in;
 
-    assign rs_pc_out    = fet_pc_in;
+    assign rs_pc_out = fet_pc_in;
 
     assign rf_rs1_out = fet_inst_in[19:15];
     assign rf_rs2_out = fet_inst_in[24:20];
     assign rf_rd_out  = fet_inst_in[11: 7];
 
-    assign rob_issue_out      = fet_issue_in;
-    assign rob_predict_pc_out = fet_predict_pc_in;
-    assign rob_inst_out = fet_inst_in;
-    assign rob_rd_out   = rf_rd_out;
     assign rob_Qj_out = rf_Qj_in;
     assign rob_Qk_out = rf_Qk_in;
-
     assign Vj_out   = rf_Qj_in == `NULL_TAG ?  rf_Vj_in : (rob_Vj_ready_in ? rob_Vj_in : `ZERO_WORD);
     assign Vk_out   = rf_Qk_in == `NULL_TAG ?  rf_Vk_in : (rob_Vk_ready_in ? rob_Vk_in : `ZERO_WORD);
     assign Qj_out   = rf_Qj_in == `NULL_TAG ? `NULL_TAG : (rob_Vj_ready_in ? `NULL_TAG : rf_Qj_in);
     assign Qk_out   = rf_Qk_in == `NULL_TAG ? `NULL_TAG : (rob_Vk_ready_in ? `NULL_TAG : rf_Qk_in);
+
+    assign rob_issue_out      = fet_issue_in;
+    assign rob_predict_pc_out = fet_predict_pc_in;
+    assign rob_inst_out = fet_inst_in;
+    assign rob_rd_out   = rf_rd_out;
 
     always @(*) begin
         dis_to_lsb_signal_out = {`FALSE, 1'b0};
         lsb_goal_out = 3'b0;
         rf_occupy_rd_out = fet_issue_in ? `TRUE : `FALSE;
         imm_out = `ZERO_WORD;
-        rs_op_out = `NOP;
+        op_out = `NOP;
+        rs_have_source_register_out = 2'b11;
         if (fet_issue_in) begin
             case (fet_inst_in[6:0])
                 `LUI_OPCODE: begin
                     imm_out = immU;
-                    rs_op_out = `LUI;
+                    op_out = `LUI;
+                    rs_have_source_register_out = 2'b00;
                 end
                 `AUIPC_OPCODE: begin
                     imm_out = immU;
-                    rs_op_out = `AUIPC;
+                    op_out = `AUIPC;
+                    rs_have_source_register_out = 2'b00;
                 end
                 `JAL_OPCODE: begin
                     imm_out = immJ;
-                    rs_op_out = `JAL;
+                    op_out = `JAL;
+                    rs_have_source_register_out = 2'b00;
                 end
                 `JALR_OPCODE: begin
                     imm_out = immI;
-                    rs_op_out = `JALR;
+                    op_out = `JALR;
+                    rs_have_source_register_out = 2'b01;
                 end
                 `BRANCH_OPCODE: begin
                     imm_out = immB;
                     case (fet_inst_in[14:12])
-                        `BEQ_FUNCT3:  begin rs_op_out = `BEQ;  end
-                        `BNE_FUNCT3:  begin rs_op_out = `BNE;  end
-                        `BLT_FUNCT3:  begin rs_op_out = `BLT;  end
-                        `BGE_FUNCT3:  begin rs_op_out = `BGE;  end
-                        `BLTU_FUNCT3: begin rs_op_out = `BLTU; end
-                        `BGEU_FUNCT3: begin rs_op_out = `BGEU; end
+                        `BEQ_FUNCT3:  begin op_out = `BEQ;  end
+                        `BNE_FUNCT3:  begin op_out = `BNE;  end
+                        `BLT_FUNCT3:  begin op_out = `BLT;  end
+                        `BGE_FUNCT3:  begin op_out = `BGE;  end
+                        `BLTU_FUNCT3: begin op_out = `BLTU; end
+                        `BGEU_FUNCT3: begin op_out = `BGEU; end
                     endcase
                     rf_occupy_rd_out = `FALSE;
                 end
                 `LOAD_OPCODE: begin
                     imm_out = immI;
                     case (fet_inst_in[14:12])
-                        `LB_FUNCT3:  begin rs_op_out = `LB;  lsb_goal_out = 3'b001; end
-                        `LH_FUNCT3:  begin rs_op_out = `LH;  lsb_goal_out = 3'b010; end
-                        `LW_FUNCT3:  begin rs_op_out = `LW;  lsb_goal_out = 3'b100; end
-                        `LBU_FUNCT3: begin rs_op_out = `LBU; lsb_goal_out = 3'b001; end
-                        `LHU_FUNCT3: begin rs_op_out = `LHU; lsb_goal_out = 3'b010; end
+                        `LB_FUNCT3:  begin op_out = `LB;  lsb_goal_out = 3'b001; end
+                        `LH_FUNCT3:  begin op_out = `LH;  lsb_goal_out = 3'b010; end
+                        `LW_FUNCT3:  begin op_out = `LW;  lsb_goal_out = 3'b100; end
+                        `LBU_FUNCT3: begin op_out = `LBU; lsb_goal_out = 3'b001; end
+                        `LHU_FUNCT3: begin op_out = `LHU; lsb_goal_out = 3'b010; end
                     endcase
                     dis_to_lsb_signal_out = {`TRUE, 1'b0};
+                    rs_have_source_register_out = 2'b01;
                 end
                 `STORE_OPCODE: begin
                     imm_out = immS;
                     case (fet_inst_in[14:12])
-                        `SB_FUNCT3: begin rs_op_out = `SB; lsb_goal_out = 3'b001; end
-                        `SH_FUNCT3: begin rs_op_out = `SH; lsb_goal_out = 3'b010; end
-                        `SW_FUNCT3: begin rs_op_out = `SW; lsb_goal_out = 3'b100; end
+                        `SB_FUNCT3: begin op_out = `SB; lsb_goal_out = 3'b001; end
+                        `SH_FUNCT3: begin op_out = `SH; lsb_goal_out = 3'b010; end
+                        `SW_FUNCT3: begin op_out = `SW; lsb_goal_out = 3'b100; end
                     endcase
                     dis_to_lsb_signal_out = {`TRUE, 1'b1};
                     rf_occupy_rd_out = `FALSE;
@@ -150,34 +157,35 @@ module Decoder (
                 `ARITH_IMM_OPCODE: begin
                     imm_out = immI;
                     case (fet_inst_in[14:12])
-                        `ADDI_FUNCT3:  begin rs_op_out = `ADDI;  end
-                        `SLTI_FUNCT3:  begin rs_op_out = `SLTI;  end
-                        `SLTIU_FUNCT3: begin rs_op_out = `SLTIU; end
-                        `XORI_FUNCT3:  begin rs_op_out = `XORI;  end
-                        `ORI_FUNCT3:   begin rs_op_out = `ORI;   end
-                        `ANDI_FUNCT3:  begin rs_op_out = `ANDI;  end
-                        `SLLI_FUNCT3:  begin rs_op_out = `SLLI;  end
+                        `ADDI_FUNCT3:  begin op_out = `ADDI;  end
+                        `SLTI_FUNCT3:  begin op_out = `SLTI;  end
+                        `SLTIU_FUNCT3: begin op_out = `SLTIU; end
+                        `XORI_FUNCT3:  begin op_out = `XORI;  end
+                        `ORI_FUNCT3:   begin op_out = `ORI;   end
+                        `ANDI_FUNCT3:  begin op_out = `ANDI;  end
+                        `SLLI_FUNCT3:  begin op_out = `SLLI;  end
                         `SRxI_FUNCT3:  begin
-                            if (fet_inst_in[31:25] == `ZERO_FUNCT7) rs_op_out = `SRLI;
-                            else rs_op_out = `SRAI;
+                            if (fet_inst_in[31:25] == `ZERO_FUNCT7) op_out = `SRLI;
+                            else op_out = `SRAI;
                         end
                     endcase
+                    rs_have_source_register_out = 2'b01;
                 end
                 `ARITH_OPCODE: begin
                     imm_out = `ZERO_WORD; // R type inst does not have imm
                     case (fet_inst_in[14:12])
                         `AS_FUNCT3:   begin
-                            if (fet_inst_in[31:25] == `ZERO_FUNCT7) rs_op_out = `ADD;
-                            else rs_op_out = `SUB;
+                            if (fet_inst_in[31:25] == `ZERO_FUNCT7) op_out = `ADD;
+                            else op_out = `SUB;
                         end
-                        `SLL_FUNCT3:  begin rs_op_out = `SLL;  end
-                        `SLT_FUNCT3:  begin rs_op_out = `SLT;  end
-                        `SLTU_FUNCT3: begin rs_op_out = `SLTU; end
-                        `XOR_FUNCT3:  begin rs_op_out = `XOR;  end
-                        `SRL_FUNCT3:  begin rs_op_out = `SRL;  end
-                        `SRA_FUNCT3:  begin rs_op_out = `SRA;  end
-                        `OR_FUNCT3:   begin rs_op_out = `OR;   end
-                        `AND_FUNCT3:  begin rs_op_out = `AND;  end
+                        `SLL_FUNCT3:  begin op_out = `SLL;  end
+                        `SLT_FUNCT3:  begin op_out = `SLT;  end
+                        `SLTU_FUNCT3: begin op_out = `SLTU; end
+                        `XOR_FUNCT3:  begin op_out = `XOR;  end
+                        `SRL_FUNCT3:  begin op_out = `SRL;  end
+                        `SRA_FUNCT3:  begin op_out = `SRA;  end
+                        `OR_FUNCT3:   begin op_out = `OR;   end
+                        `AND_FUNCT3:  begin op_out = `AND;  end
                     endcase
                 end
             endcase

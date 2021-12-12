@@ -19,8 +19,8 @@
 
 // capacities
 `define RF_CAPACITY    32 // @see RF_INDEX_LEN
-`define ROB_CAPACITY   15 // @see ROB_TAG_LEN
-`define LSB_CAPACITY   15 // @see LSB_INDEX_RANGE
+`define ROB_CAPACITY   16 // @see ROB_TAG_LEN
+`define LSB_CAPACITY   16 // @see LSB_INDEX_RANGE
 `define RS_CAPACITY    15
 
 // lens
@@ -33,7 +33,7 @@
 `define RF_RANGE             `RF_CAPACITY - 1:0
 `define RS_RANGE             `RS_CAPACITY - 1:0
 `define LSB_RANGE           `LSB_CAPACITY - 1:0
-`define LSB_INDEX_RANGE                     4:0
+`define LSB_INDEX_RANGE                     3:0
 `define ROB_RANGE           `ROB_CAPACITY - 1:0
 `define ROB_TAG_RANGE        `ROB_TAG_LEN - 1:0
 `define INNER_INST_RANGE                    5:0

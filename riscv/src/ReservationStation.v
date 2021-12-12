@@ -27,6 +27,7 @@ module ReservationStation (
     input  wire [`ROB_TAG_RANGE]    dec_Qk_in,
     input  wire [`WORD_RANGE]       dec_imm_in,
     input  wire [`WORD_RANGE]       dec_pc_in,
+    input  wire [1:0]               dec_have_source_register_in,
 
     // ArithmeticLogicUnit
     output reg                      alu_calculate_signal_out,
@@ -55,6 +56,7 @@ module ReservationStation (
 
     reg busy [`RS_RANGE];
     wire ready [`RS_RANGE];
+    reg [1:0] have_source_register [`RS_RANGE]; // {have rs2, have rs1}
     reg [`INNER_INST_RANGE] op [`RS_RANGE];
     reg [`WORD_RANGE] imm [`RS_RANGE];
     reg [`WORD_RANGE] pc [`RS_RANGE];
@@ -71,6 +73,7 @@ module ReservationStation (
         if (rst || rob_rollback_in) begin
             for (i = 0; i < `RS_CAPACITY; i = i + 1) begin
                 busy[i] <= `FALSE;
+                have_source_register[i] <= 2'b0;
                 op[i] <= `NOP;
                 imm[i] <= `ZERO_WORD;
                 pc[i] <= `ZERO_WORD;
@@ -83,6 +86,7 @@ module ReservationStation (
         end else begin
             if (dis_new_inst_signal_in) begin
                 busy[next_free_entry] <= `TRUE;
+                have_source_register[next_free_entry] <= dec_have_source_register_in;
                 op[next_free_entry] <= dec_op_in;
                 imm[next_free_entry] <= dec_imm_in;
                 pc[next_free_entry] <= dec_pc_in;
@@ -105,11 +109,11 @@ module ReservationStation (
             // update data by snoopy on cdb (i.e., alu && lsb)
             if (alu_broadcast_signal_in) begin
                 for (i = 0; i < `RS_CAPACITY; i = i + 1) begin
-                    if (alu_dest_tag_in == Qj[i]) begin
+                    if (alu_dest_tag_in == Qj[i] && busy[i]) begin
                         Qj[i] <= `NULL_TAG;
                         Vj[i] <= alu_result_in;
                     end
-                    if (alu_dest_tag_in == Qk[i]) begin
+                    if (alu_dest_tag_in == Qk[i] && busy[i]) begin
                         Qk[i] <= `NULL_TAG;
                         Vk[i] <= alu_result_in;
                     end
@@ -117,11 +121,11 @@ module ReservationStation (
             end
             if (lsb_broadcast_signal_in) begin
                 for (i = 0; i < `RS_CAPACITY; i = i + 1) begin
-                    if (lsb_dest_tag_in == Qj[i]) begin
+                    if (lsb_dest_tag_in == Qj[i] && busy[i]) begin
                         Qj[i] <= `NULL_TAG;
                         Vj[i] <= lsb_result_in;
                     end
-                    if (lsb_dest_tag_in == Qk[i]) begin
+                    if (lsb_dest_tag_in == Qk[i] && busy[i]) begin
                         Qk[i] <= `NULL_TAG;
                         Vk[i] <= lsb_result_in;
                     end
@@ -133,7 +137,9 @@ module ReservationStation (
     generate
         genvar index;
         for (index = 0; index < `RS_CAPACITY; index = index + 1) begin : generate_ready
-            assign ready[index] = busy[index] && (Qj[index] == `NULL_TAG) && (Qk[index] == `NULL_TAG);
+            assign ready[index] = busy[index]
+                                && (have_source_register[index][0] ? Qj[index] == `NULL_TAG : 1)
+                                && (have_source_register[index][1] ? Qk[index] == `NULL_TAG : 1);
         end
     endgenerate
 

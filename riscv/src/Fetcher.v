@@ -76,8 +76,7 @@ module Fetcher (
                     if (current_inst[6:0] == `JAL_OPCODE) begin
                         pc <= pc + immJ;
                         dec_predict_pc_out <= pc + immJ;
-                    end
-                    else begin
+                    end else begin
                         pc <= pc + 4;
                         dec_predict_pc_out <= pc + 4;
                     end

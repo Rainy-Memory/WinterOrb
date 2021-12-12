@@ -117,6 +117,7 @@ module MemoryController (
                     status <= BUSY;
                     working_on <= STORE;
                     // store doesn't need wait 2 cycle
+                    waiting <= `TRUE;
                     goal <= store_goal;
                     current_address <= store_address;
                     current_data <= store_data;
@@ -145,14 +146,18 @@ module MemoryController (
                 end
             end else if (status == BUSY) begin
                 if (working_on == STORE) begin
-                    if (current == goal) begin
-                        status <= FINISH;
-                        current <= 3'd0;
-                    end else begin
-                        ram_rw_signal_out <= `WRITE;
-                        ram_address_out <= current_address + current;
-                        ram_data_out <= current_data[current * `RAM_DATA_LEN +: `RAM_DATA_LEN];
-                        current <= current + 1;
+                    if (waiting) waiting <= `FALSE;
+                    else begin
+                       if (current == goal) begin
+                            status <= FINISH;
+                            current <= 3'd0;
+                        end else begin
+                            waiting <= `TRUE;
+                            ram_rw_signal_out <= `WRITE;
+                            ram_address_out <= current_address + current;
+                            ram_data_out <= current_data[current * `RAM_DATA_LEN +: `RAM_DATA_LEN];
+                            current <= current + 1;
+                        end 
                     end
                 end else begin // working_on == INSTRUCTION || LOAD
                     if (waiting) waiting <= `FALSE;
@@ -175,14 +180,13 @@ module MemoryController (
                 end else if (working_on == LOAD) begin
                     lsb_ready_out <= `TRUE;
                     lsb_data_out <= buffer;
-                    buffer <= `ZERO_WORD;
                 end else begin
                     fet_ready_out <= `TRUE;
                     fet_instruction_out <= buffer;
-                    buffer <= `ZERO_WORD;
                 end
                 status <= IDLE;
                 working_on <= NONE;
+                buffer <= `ZERO_WORD;
             end
         end
     end

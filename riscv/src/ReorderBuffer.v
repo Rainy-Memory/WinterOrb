@@ -45,6 +45,7 @@ module ReorderBuffer (
 
     // RegisterFile && LoadStoreBuffer
     output reg                     commit_signal_out,
+    output reg                     commit_lsb_signal_out,
     output reg  [`ROB_TAG_RANGE]   commit_tag_out,
     output reg  [`WORD_RANGE]      commit_data_out,
     output reg  [`REG_INDEX_RANGE] commit_target_out
@@ -62,21 +63,22 @@ module ReorderBuffer (
     reg [`WORD_RANGE] data [`ROB_RANGE];
     reg [`REG_INDEX_RANGE] dest [`ROB_RANGE];
     reg [`WORD_RANGE] predict_pc [`ROB_RANGE];
+    reg [`WORD_RANGE] new_pc [`ROB_RANGE];
 
     assign dec_Vj_ready_out = ready[dec_Qj_in];
     assign dec_Vk_ready_out = ready[dec_Qk_in];
     assign dec_Vj_out       = data[dec_Qj_in];
     assign dec_Vk_out       = data[dec_Qk_in];
 
-    assign head_next = head == `ROB_CAPACITY ? 1 : head + 1;
-    assign tail_next = tail == `ROB_CAPACITY ? 1 : tail + 1;
+    assign head_next = head == `ROB_CAPACITY - 1 ? 1 : head + 1;
+    assign tail_next = tail == `ROB_CAPACITY - 1 ? 1 : tail + 1;
     assign full_out  = head == tail_next;
     assign dec_next_tag_out = (head != tail_next) ? tail_next : `NULL_TAG;
 
     always @(posedge clk) begin
         rollback_out <= `FALSE;
-        fet_rollback_pc_out <= `ZERO_WORD;
         commit_signal_out <= `FALSE;
+        commit_lsb_signal_out <= `FALSE;
         if (rst) begin
             tail <= 1;
             head <= 1;
@@ -95,23 +97,40 @@ module ReorderBuffer (
                 data[tail_next] <= `ZERO_WORD;
                 dest[tail_next] <= dec_rd_in;
                 predict_pc[tail_next] <= dec_predict_pc_in;
-                tail <= tail == `ROB_CAPACITY ? 1 : tail + 1;
+                tail <= tail_next;
             end
             // update data by snoopy on cdb (i.e., alu && lsb)
             if (alu_broadcast_signal_in) begin
                 data[alu_dest_tag_in] <= alu_result_in;
                 ready[alu_dest_tag_in] <= `TRUE;
-                if (inst[alu_dest_tag_in][6:0] == `JALR_OPCODE || 
-                    inst[alu_dest_tag_in][6:0] == `BRANCH_OPCODE ||
-                    inst[alu_dest_tag_in][6:0] == `AUIPC_OPCODE) begin
-                    if (alu_new_pc_in != predict_pc[alu_dest_tag_in]) begin
-                        // rollback
-                        // reset pc
-                        // execute all committed instruction in lsb
-                        // keep register value in RegisterFile
-                        // clear all
+                new_pc[alu_dest_tag_in] <= alu_new_pc_in;
+            end
+            if (lsb_broadcast_signal_in) begin
+                data[lsb_dest_tag_in] <= lsb_result_in;
+                ready[lsb_dest_tag_in] <= `TRUE;
+            end
+            // commit when not empty
+            // store will automatically committed when it reach rob head
+            if (head != tail && (ready[head_next] || inst[head_next][6:0] == `STORE_OPCODE)) begin
+                ready[head_next] <= `FALSE;
+                commit_signal_out <= `TRUE;
+                commit_lsb_signal_out <= inst[head_next][6:0] == `STORE_OPCODE || inst[head_next][6:0] == `LOAD_OPCODE;
+                commit_tag_out <= head_next;
+                // TODO broadcast rob as well
+                commit_data_out <= data[head_next];
+                commit_target_out <= dest[head_next];
+                head <= head_next;
+                if (inst[head_next][6:0] == `JALR_OPCODE  || 
+                    inst[head_next][6:0] == `AUIPC_OPCODE ||
+                    inst[head_next][6:0] == `BRANCH_OPCODE) begin
+                    if (new_pc[head_next] != predict_pc[head_next]) begin
+                        // rollback:
+                        // (1) reset pc
+                        // (2) execute all committed instruction in lsb
+                        // (3) keep register value in RegisterFile
+                        // (4) rst all other modules
                         rollback_out <= `TRUE;
-                        fet_rollback_pc_out <= alu_new_pc_in;
+                        fet_rollback_pc_out <= new_pc[head_next];
                         tail <= 1;
                         head <= 1;
                         for (i = 0; i < `ROB_CAPACITY; i = i + 1) begin
@@ -123,20 +142,6 @@ module ReorderBuffer (
                         end
                     end
                 end
-            end
-            if (lsb_broadcast_signal_in) begin
-                data[lsb_dest_tag_in] <= lsb_result_in;
-                ready[lsb_dest_tag_in] <= `TRUE;
-            end
-            // commit
-            // store will automatically committed when it reach rob head
-            if (ready[head_next] || inst[head_next][6:0] == `STORE_OPCODE) begin
-                ready[head_next] <= `FALSE;
-                commit_signal_out <= `TRUE;
-                commit_tag_out <= head_next;
-                commit_data_out <= data[head_next];
-                commit_target_out <= dest[head_next];
-                head <= head == `ROB_CAPACITY ? 1 : head + 1;
             end
         end
     end
