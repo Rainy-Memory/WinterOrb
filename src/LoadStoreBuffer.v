@@ -59,9 +59,8 @@ module LoadStoreBuffer (
     reg [`LSB_INDEX_RANGE] head, tail;
     wire [`LSB_INDEX_RANGE] head_next, tail_next;
 
-    // use overflow to ensure head_next and tail_next in `LSB_RANGE
-    assign head_next = head + 1;
-    assign tail_next = tail + 1;
+    assign head_next = (head + 1) % `LSB_CAPACITY;
+    assign tail_next = (tail + 1) % `LSB_CAPACITY;
     assign full_out = head == tail_next;
 
     reg load_store_flag [`LSB_RANGE]; // LOAD -> 0, STORE -> 1
@@ -109,8 +108,6 @@ module LoadStoreBuffer (
     assign unexe_cnt_plus = rob_commit_lsb_signal_in;
     assign unexe_cnt_minus = head != tail && status == IDLE && ready[head_next] && load_store_flag[head_next];
 
-reg [`WORD_RANGE] temp;
-
     always @(posedge clk) begin
         mc_request_out <= `FALSE;
         broadcast_signal_out <= `FALSE;
@@ -122,8 +119,7 @@ reg [`WORD_RANGE] temp;
             status <= IDLE;
             current_tag <= `NULL_TAG;
         end else if (rob_rollback_in) begin
-            // overflow
-            tail <= head + unexecute_committed_store_cnt;
+            tail <= (head + unexecute_committed_store_cnt) % `LSB_CAPACITY;
             unexecute_committed_store_cnt <= 0;
             if (status == LOAD) begin
                 status <= IDLE;
@@ -156,8 +152,8 @@ reg [`WORD_RANGE] temp;
             // waiting for commit signal
             if (rob_commit_lsb_signal_in) begin
                 // must commit head_next + unexecute_committed_store_cnt
-                commit_flag[head_next + unexecute_committed_store_cnt] <= `TRUE;
-                if (!(rob_tag[head_next + unexecute_committed_store_cnt] == rob_commit_tag_in && load_store_flag[head_next + unexecute_committed_store_cnt])) assert_bit <= `TRUE;
+                commit_flag[(head_next + unexecute_committed_store_cnt) % `LSB_CAPACITY] <= `TRUE;
+                if (!(rob_tag[(head_next + unexecute_committed_store_cnt) % `LSB_CAPACITY] == rob_commit_tag_in && load_store_flag[(head_next + unexecute_committed_store_cnt) % `LSB_CAPACITY])) assert_bit <= `TRUE;
             end
             // update data by snoopy on cdb (i.e., alu && rob)
             if (alu_broadcast_signal_in) begin
@@ -228,7 +224,10 @@ reg [`WORD_RANGE] temp;
             end
             unexecute_committed_store_cnt <= unexecute_committed_store_cnt + (unexe_cnt_plus ? 1 : 0) - (unexe_cnt_minus ? 1 : 0);
         end
-    end    
+    end
+
+    wire [`ROB_TAG_RANGE] w1,w2,w3,w4,w5,w6;
+    assign w1=Qj[0];assign w2=Qk[0];assign w3=commit_flag[14];assign w4=commit_flag[15];assign w5=commit_flag[0];assign w6=commit_flag[1];
 
     generate
         genvar index;
@@ -237,8 +236,8 @@ reg [`WORD_RANGE] temp;
             assign ready[index] = load_store_flag[index] ? commit_flag[index] && Qj[index] == `NULL_TAG && Qk[index] == `NULL_TAG : Qj[index] == `NULL_TAG;
         end
         for (index = 0; index < `LSB_CAPACITY; index = index + 1) begin : generate_in_queue
-            assign in_queue[index] = head < tail ? head < index && index <= tail :
-                                     head > tail ? head < index || index <= tail : `FALSE;
+            assign in_queue[index] = head < tail ? (head < index && index <= tail) :
+                                     head > tail ? (head < index || index <= tail) : `FALSE;
         end
     endgenerate
 

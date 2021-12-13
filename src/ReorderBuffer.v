@@ -200,7 +200,7 @@ module ReorderBuffer (
     assign in_queue[`NULL_TAG] = `FALSE;
     generate
         genvar index;
-        for (index = 1; index < `LSB_CAPACITY; index = index + 1) begin : generate_in_queue
+        for (index = 1; index < `ROB_CAPACITY; index = index + 1) begin : generate_in_queue
             assign in_queue[index] = head < tail ? head < index && index <= tail :
                                      head > tail ? head < index || index <= tail : `FALSE;
         end

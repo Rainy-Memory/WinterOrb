@@ -1,0 +1,9 @@
+WARNING: src/common/block_ram/block_ram.v:94: $readmemh: Standard inconsistency, following 1364-2005.
+ERROR: src/common/block_ram/block_ram.v:94: $readmemh: Unable to open ./test/test.data for reading.
+VCD info: dumpfile bin/cpu_build.vcd opened for output.
+** VVP Stop(0) **
+** Flushing output streams.
+** Current simulation time is 651371000 ticks.
+> ^C^C** Continue **
+** VVP Stop(0) **
+** Flushing output streams.

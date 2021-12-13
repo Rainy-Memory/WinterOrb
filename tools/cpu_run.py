@@ -71,7 +71,7 @@ def run():
                 print("error: -o without argument")
                 exit(1)
             i = i + 1
-            output_file = sys.argv[i]
+            output_file = "bin/" + sys.argv[i]
         elif arg == "-case":
             if (i == len(sys.argv)):
                 print("error: -case without argument")
