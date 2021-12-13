@@ -9,6 +9,8 @@
  * data hazard.
  */
 
+`define PRINT_PREDICTION_RATE
+
 module ReorderBuffer (
     input  wire                    clk,
     input  wire                    rst,
@@ -18,6 +20,8 @@ module ReorderBuffer (
 
     // Fetcher
     output reg  [`WORD_RANGE]      fet_rollback_pc_out,
+    output reg                     commit_fet_signal_out,
+    output reg                     fet_branch_taken,
 
     // Decoder
     input  wire                    dec_issue_in,
@@ -27,6 +31,7 @@ module ReorderBuffer (
     input  wire [`ROB_TAG_RANGE]   dec_Qj_in,
     input  wire [`ROB_TAG_RANGE]   dec_Qk_in,
     input  wire [`WORD_RANGE]      dec_pc_in,
+    input  wire [`WORD_RANGE]      dec_imm_in,
     output wire [`ROB_TAG_RANGE]   dec_next_tag_out,
     output wire                    dec_Vj_ready_out,
     output wire                    dec_Vk_ready_out,
@@ -44,7 +49,13 @@ module ReorderBuffer (
     input  wire [`WORD_RANGE]      lsb_result_in,
     input  wire [`ROB_TAG_RANGE]   lsb_dest_tag_in,
 
+    // broadcast
+    output reg                      broadcast_signal_out,
+    output reg  [`WORD_RANGE]       result_out,
+    output reg  [`ROB_TAG_RANGE]    dest_tag_out,
+
     // RegisterFile && LoadStoreBuffer
+    output reg                     commit_signal_out,
     output reg                     commit_rf_signal_out,
     output reg                     commit_lsb_signal_out,
     output reg  [`WORD_RANGE]      commit_pc_out,
@@ -65,14 +76,26 @@ module ReorderBuffer (
     reg [`WORD_RANGE] data [`ROB_RANGE];
     reg [`REG_INDEX_RANGE] dest [`ROB_RANGE];
     reg [`WORD_RANGE] pc [`ROB_RANGE];
+    reg [`WORD_RANGE] imm [`ROB_RANGE];
     reg [`WORD_RANGE] predict_pc [`ROB_RANGE];
     reg [`WORD_RANGE] new_pc [`ROB_RANGE];
+    wire in_queue [`ROB_RANGE];
 
     reg need_to_rollback;
+    reg inner_rollback;
     reg [`WORD_RANGE] rollback_pc;
 
-    assign dec_Vj_ready_out = ready[dec_Qj_in];
-    assign dec_Vk_ready_out = ready[dec_Qk_in];
+`ifdef PRINT_PREDICTION_RATE
+    integer rob_log, success, total;
+    initial begin
+        rob_log = $fopen("bin/rob_log.txt", "w");
+        success = 0;
+        total = 0;
+    end    
+`endif
+
+    assign dec_Vj_ready_out = in_queue[dec_Qj_in] ? ready[dec_Qj_in] : `FALSE;
+    assign dec_Vk_ready_out = in_queue[dec_Qk_in] ? ready[dec_Qk_in] : `FALSE;
     assign dec_Vj_out       = data[dec_Qj_in];
     assign dec_Vk_out       = data[dec_Qk_in];
 
@@ -83,10 +106,14 @@ module ReorderBuffer (
 
     always @(posedge clk) begin
         rollback_out <= `FALSE;
+        broadcast_signal_out <= `FALSE;
+        commit_signal_out <= `FALSE;
         commit_rf_signal_out <= `FALSE;
         commit_lsb_signal_out <= `FALSE;
+        commit_fet_signal_out <= `FALSE;
         need_to_rollback <= `FALSE;
-        if (rst) begin
+        inner_rollback <= `FALSE;
+        if (rst || inner_rollback) begin
             tail <= 1;
             head <= 1;
             for (i = 0; i < `ROB_CAPACITY; i = i + 1) begin
@@ -95,6 +122,7 @@ module ReorderBuffer (
                 data[i] <= `ZERO_WORD;
                 dest[i] <= `ZERO_REG_INDEX;
                 pc[i] <= `ZERO_WORD;
+                imm[i] <= `ZERO_WORD;
                 predict_pc[i] <= `ZERO_WORD;
                 new_pc[i] <= `ZERO_WORD;
             end
@@ -106,17 +134,7 @@ module ReorderBuffer (
             // (4) rst all other modules
             rollback_out <= `TRUE;
             fet_rollback_pc_out <= rollback_pc;
-            tail <= 1;
-            head <= 1;
-            for (i = 0; i < `ROB_CAPACITY; i = i + 1) begin
-                ready[i] <= `FALSE;
-                inst[i] <= `ZERO_WORD;
-                data[i] <= `ZERO_WORD;
-                dest[i] <= `ZERO_REG_INDEX;
-                pc[i] <= `ZERO_WORD;
-                predict_pc[i] <= `ZERO_WORD;
-                new_pc[i] <= `ZERO_WORD;
-            end
+            inner_rollback <= `TRUE;
         end else begin
             if (dec_issue_in) begin
                 // add new entry
@@ -125,16 +143,17 @@ module ReorderBuffer (
                 data[tail_next] <= `ZERO_WORD;
                 dest[tail_next] <= dec_rd_in;
                 pc[tail_next] <= dec_pc_in;
+                imm[tail_next] <= dec_imm_in;
                 predict_pc[tail_next] <= dec_predict_pc_in;
                 tail <= tail_next;
             end
             // update data by snoopy on cdb (i.e., alu && lsb)
-            if (alu_broadcast_signal_in) begin
+            if (alu_broadcast_signal_in && in_queue[alu_dest_tag_in]) begin
                 data[alu_dest_tag_in] <= alu_result_in;
                 ready[alu_dest_tag_in] <= `TRUE;
                 new_pc[alu_dest_tag_in] <= alu_new_pc_in;
             end
-            if (lsb_broadcast_signal_in) begin
+            if (lsb_broadcast_signal_in && in_queue[lsb_dest_tag_in]) begin
                 data[lsb_dest_tag_in] <= lsb_result_in;
                 ready[lsb_dest_tag_in] <= `TRUE;
             end
@@ -142,14 +161,20 @@ module ReorderBuffer (
             // store will automatically committed when it reach rob head
             if (head != tail && (ready[head_next] || inst[head_next][6:0] == `STORE_OPCODE)) begin
                 ready[head_next] <= `FALSE;
-                commit_rf_signal_out <= `TRUE;
-                commit_lsb_signal_out <= inst[head_next][6:0] == `STORE_OPCODE || inst[head_next][6:0] == `LOAD_OPCODE;
+                commit_signal_out <= `TRUE;
+                commit_rf_signal_out <= inst[head_next][6:0] != `BRANCH_OPCODE && inst[head_next][6:0] != `STORE_OPCODE;
+                // only store in lsb need commit (load will always be committed after its exectuion in lsb)
+                commit_lsb_signal_out <= inst[head_next][6:0] == `STORE_OPCODE;
                 commit_pc_out <= pc[head_next];
                 commit_tag_out <= head_next;
-                // TODO broadcast rob as well to avoid cannot listen alu/lsb
                 commit_data_out <= data[head_next];
                 commit_target_out <= dest[head_next];
                 head <= head_next;
+                // broadcast
+                broadcast_signal_out <= `TRUE;
+                result_out <= data[head_next];
+                dest_tag_out <= head_next;
+                // rollback
                 if (inst[head_next][6:0] == `JALR_OPCODE  || 
                     inst[head_next][6:0] == `AUIPC_OPCODE ||
                     inst[head_next][6:0] == `BRANCH_OPCODE) begin
@@ -157,9 +182,28 @@ module ReorderBuffer (
                         need_to_rollback <= `TRUE;
                         rollback_pc <= new_pc[head_next];
                     end
+                    // for branch predict
+                    if (inst[head_next][6:0] == `BRANCH_OPCODE) begin
+                        commit_fet_signal_out <= `TRUE;
+                        fet_branch_taken <= new_pc[head_next] == pc[head_next] + imm[head_next];
+`ifdef PRINT_PREDICTION_RATE
+                        if (new_pc[head_next] == predict_pc[head_next]) success = success + 1;
+                        total = total + 1;
+                        $fdisplay(rob_log, "branch_taken: %s, success_rate = %d / %d", new_pc[head_next] == predict_pc[head_next] ? "true" : "false", success, total);
+`endif
+                    end
                 end
             end
         end
     end
+
+    assign in_queue[`NULL_TAG] = `FALSE;
+    generate
+        genvar index;
+        for (index = 1; index < `LSB_CAPACITY; index = index + 1) begin : generate_in_queue
+            assign in_queue[index] = head < tail ? head < index && index <= tail :
+                                     head > tail ? head < index || index <= tail : `FALSE;
+        end
+    endgenerate
 
 endmodule

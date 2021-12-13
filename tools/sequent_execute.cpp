@@ -2,11 +2,7 @@
 // Created by Rainy Memory on 2021/7/1.
 //
 
-#pragma GCC optimize ("Ofast")
-
 #include <iostream>
-#include <bitset>
-#include <fstream>
 #include <iomanip>
 
 using uint = unsigned int;
@@ -282,7 +278,6 @@ private:
     void InstructionFetch() {
         //read command to register
         f2dReg.cmd = mem.getCommand(pc);
-        // std::cerr << pc << "\t\t" << std::hex << f2dReg.cmd << "\t\t" << std::dec;
         if (f2dReg.cmd == 0x0ff00513)stop = true;
         pc += 4;
     }
@@ -378,8 +373,6 @@ private:
                 std::cerr << "[Error]function [InstructionDecode()] wrong with a undefined CommandType." << std::endl;
                 break;
         }
-        // std::cerr << std::bitset<sizeof(uint) * 2>(d2eReg.type) << "\t\t" << d2eReg.immediate << "\t\t\t" << d2eReg.rd << "\t\t"
-        //           << rs1 << "\t\t" << rs2 << "\t\t" << d2eReg.rs1val << "\t\t" << d2eReg.rs2val << std::endl;
     }
     
     struct ID2EXReg {
@@ -607,13 +600,13 @@ private:
         //write to register
         if (m2wReg.needWB && m2wReg.rd != 0)reg[m2wReg.rd] = m2wReg.val;
     }
-
-    int get_bit(int a) { 
+    
+    static int get_bit(int a) {
         int cnt = 0;
         do {cnt++;} while ((a /= 10) > 0);
         return cnt;
     }
-
+    
     void print_register_file(std::ostream & os) {
         static int cnt = 0;
         os << "cnt: ";
@@ -629,15 +622,12 @@ private:
             os << std::hex << std::setw(8) << std::setfill('0') << reg[i] << std::dec << std::endl;
         }
     }
-
-    int old_pc;
+    
+    uint old_pc;
 
 public:
     void runSequenceExecute() {
-        // std::ios::sync_with_stdio(false);
-        // std::fstream is, os;
-        // is.open("test/test.data", std::ios::in);
-        // os.open("bin/std_rf_log.txt", std::ios::out);
+        std::ios::sync_with_stdio(false);
         mem.initialize(std::cin);
         while (true) {
             old_pc = pc;
@@ -649,8 +639,6 @@ public:
             WriteBack();
             print_register_file(std::cout);
         }
-        // is.close();
-        // os.close();
     }
 };
 

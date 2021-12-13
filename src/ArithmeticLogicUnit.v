@@ -17,7 +17,7 @@ module ArithmeticLogicUnit (
     input  wire [`WORD_RANGE]       rs_rs2val_in,
     input  wire [`ROB_TAG_RANGE]    rs_dest_in,
 
-    // ReservationStation && LoadStoreBuffer && ReorderBuffer
+    // broadcast
     output wire                     broadcast_signal_out,
     output reg  [`WORD_RANGE]       result_out,
     output wire [`ROB_TAG_RANGE]    dest_tag_out,
@@ -33,7 +33,6 @@ module ArithmeticLogicUnit (
     assign broadcast_signal_out = rs_calculate_signal_in;
 
     always @(*) begin
-        rob_new_pc_out = rs_pc_in + 4;
         case (rs_op_in)
             `LUI: result_out = rs_imm_in;
             `AUIPC: begin

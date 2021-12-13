@@ -41,13 +41,16 @@ module ReservationStation (
     // ReorderBuffer
     input  wire                     rob_rollback_in,
 
-    // BroadCast (ArithmeticLogicUnit && LoadStoreBuffer)
+    // broadcast
     input  wire                     alu_broadcast_signal_in,
     input  wire [`WORD_RANGE]       alu_result_in,
     input  wire [`ROB_TAG_RANGE]    alu_dest_tag_in,
     input  wire                     lsb_broadcast_signal_in,
     input  wire [`WORD_RANGE]       lsb_result_in,
-    input  wire [`ROB_TAG_RANGE]    lsb_dest_tag_in
+    input  wire [`ROB_TAG_RANGE]    lsb_dest_tag_in,
+    input  wire                     rob_broadcast_signal_in,
+    input  wire [`WORD_RANGE]       rob_result_in,
+    input  wire [`ROB_TAG_RANGE]    rob_dest_tag_in
 );
 
     integer i;
@@ -95,6 +98,16 @@ module ReservationStation (
                 Qj[next_free_entry] <= dec_Qj_in;
                 Qk[next_free_entry] <= dec_Qk_in;
                 dest[next_free_entry] <= dec_next_tag_in;
+                if (rob_broadcast_signal_in) begin
+                    if (dec_Qj_in == rob_dest_tag_in) begin
+                        Qj[next_free_entry] <= `NULL_TAG;
+                        Vj[next_free_entry] <= rob_result_in;
+                    end
+                    if (dec_Qk_in == rob_dest_tag_in) begin
+                        Qk[next_free_entry] <= `NULL_TAG;
+                        Vk[next_free_entry] <= rob_result_in;
+                    end
+                end
             end
             if (next_ready != `NULL_ENTRY) begin
                 alu_calculate_signal_out <= `TRUE;
@@ -106,28 +119,46 @@ module ReservationStation (
                 alu_rs2val_out <= Vk[next_ready];
                 alu_dest_out <= dest[next_ready];
             end
-            // update data by snoopy on cdb (i.e., alu && lsb)
+            // update data by snoopy on cdb (i.e., alu && lsb && rob)
             if (alu_broadcast_signal_in) begin
                 for (i = 0; i < `RS_CAPACITY; i = i + 1) begin
-                    if (alu_dest_tag_in == Qj[i] && busy[i]) begin
-                        Qj[i] <= `NULL_TAG;
-                        Vj[i] <= alu_result_in;
-                    end
-                    if (alu_dest_tag_in == Qk[i] && busy[i]) begin
-                        Qk[i] <= `NULL_TAG;
-                        Vk[i] <= alu_result_in;
+                    if (busy[i]) begin
+                        if (alu_dest_tag_in == Qj[i]) begin
+                            Qj[i] <= `NULL_TAG;
+                            Vj[i] <= alu_result_in;
+                        end
+                        if (alu_dest_tag_in == Qk[i]) begin
+                            Qk[i] <= `NULL_TAG;
+                            Vk[i] <= alu_result_in;
+                        end
                     end
                 end
             end
             if (lsb_broadcast_signal_in) begin
                 for (i = 0; i < `RS_CAPACITY; i = i + 1) begin
-                    if (lsb_dest_tag_in == Qj[i] && busy[i]) begin
-                        Qj[i] <= `NULL_TAG;
-                        Vj[i] <= lsb_result_in;
+                    if (busy[i]) begin
+                        if (lsb_dest_tag_in == Qj[i]) begin
+                            Qj[i] <= `NULL_TAG;
+                            Vj[i] <= lsb_result_in;
+                        end
+                        if (lsb_dest_tag_in == Qk[i]) begin
+                            Qk[i] <= `NULL_TAG;
+                            Vk[i] <= lsb_result_in;
+                        end
                     end
-                    if (lsb_dest_tag_in == Qk[i] && busy[i]) begin
-                        Qk[i] <= `NULL_TAG;
-                        Vk[i] <= lsb_result_in;
+                end
+            end
+            if (rob_broadcast_signal_in) begin
+                for (i = 0; i < `RS_CAPACITY; i = i + 1) begin
+                    if (busy[i]) begin
+                        if (rob_dest_tag_in == Qj[i]) begin
+                            Qj[i] <= `NULL_TAG;
+                            Vj[i] <= rob_result_in;
+                        end
+                        if (rob_dest_tag_in == Qk[i]) begin
+                            Qk[i] <= `NULL_TAG;
+                            Vk[i] <= rob_result_in;
+                        end
                     end
                 end
             end
@@ -138,8 +169,8 @@ module ReservationStation (
         genvar index;
         for (index = 0; index < `RS_CAPACITY; index = index + 1) begin : generate_ready
             assign ready[index] = busy[index]
-                                && (have_source_register[index][0] ? Qj[index] == `NULL_TAG : 1)
-                                && (have_source_register[index][1] ? Qk[index] == `NULL_TAG : 1);
+                                && (have_source_register[index][0] ? Qj[index] == `NULL_TAG : `TRUE)
+                                && (have_source_register[index][1] ? Qk[index] == `NULL_TAG : `TRUE);
         end
     endgenerate
 

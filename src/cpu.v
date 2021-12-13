@@ -81,12 +81,12 @@ module cpu (
     wire [`WORD_RANGE] fet_dec_predict_pc;
 
     // Deocder to Dispatcher
-    wire                     dec_dis_ready;
-    wire [1:0]               dec_dis_to_lsb_signal;
-    wire [2:0]               dec_lsb_goal;
+    wire       dec_dis_ready;
+    wire [1:0] dec_dis_to_lsb_signal;
+    wire [2:0] dec_lsb_goal;
 
     // Decoder to ReservationStation
-    wire [1:0]               dec_rs_have_source_register;
+    wire [1:0] dec_rs_have_source_register;
 
     // Decoder to RegisterFile
     wire [`REG_INDEX_RANGE] dec_rf_rs1;
@@ -128,12 +128,14 @@ module cpu (
     wire dis_rs_new_inst_signal;
 
     // Dispatcher to LoadStoreBuffer
-    wire dis_lsb_new_inst_signal;
-    wire dis_lsb_load_store_signal;
+    wire       dis_lsb_new_inst_signal;
+    wire       dis_lsb_load_store_signal;
     wire [2:0] dis_lsb_goal;
 
     // ReorderBuffer to Fetcher
     wire [`WORD_RANGE] rob_fet_rollback_pc;
+    wire               rob_commit_fet_signal_out;
+    wire               rob_fet_branch_taken;
 
     // Global Signal
     wire rs_full_out;
@@ -142,6 +144,7 @@ module cpu (
     wire rob_rollback_out;
 
     // ReorderBuffer to RegisterFile && LoadStoreBuffer
+    wire                    rob_commit_signal_out;
     wire                    rob_commit_rf_signal_out;
     wire                    rob_commit_lsb_signal_out;
     wire [`WORD_RANGE]      rob_commit_pc_out;
@@ -159,7 +162,7 @@ module cpu (
     wire [`ROB_TAG_RANGE]    rs_alu_dest;
 
     // ArithmeticLogicUnit to ReorderBuffer
-    wire [`WORD_RANGE]    alu_rob_new_pc;
+    wire [`WORD_RANGE] alu_rob_new_pc;
 
     // ArithmeticLogicUnit broadcast
     wire                  alu_broadcast_signal_out;
@@ -169,6 +172,10 @@ module cpu (
     wire                  lsb_broadcast_signal_out;
     wire [`WORD_RANGE]    lsb_result_out;
     wire [`ROB_TAG_RANGE] lsb_dest_tag_out;
+    // ReorderBuffer broadcast
+    wire                  rob_broadcast_signal_out;
+    wire [`WORD_RANGE]    rob_result_out;
+    wire [`ROB_TAG_RANGE] rob_dest_tag_out;
 
     MemoryController mc (
         .clk(clk_in),
@@ -211,6 +218,9 @@ module cpu (
         .rob_full_in(rob_full_out),
         .rob_rollback_in(rob_rollback_out),
         .rob_rollback_pc_in(rob_fet_rollback_pc),
+        .rob_commit_signal_in(rob_commit_fet_signal_out),
+        .rob_commit_pc_in(rob_commit_pc_out),
+        .rob_branch_taken_in(rob_fet_branch_taken),
 
         .dec_issue_out(fet_dec_issue),
         .dec_inst_out(fet_dec_inst),
@@ -288,7 +298,8 @@ module cpu (
         .dec_Qk_out(rf_dec_Qk),
 
         .rob_rollback_in(rob_rollback_out),
-        .rob_commit_signal_in(rob_commit_rf_signal_out),
+        .rob_commit_signal_in(rob_commit_signal_out),
+        .rob_commit_rf_signal_in(rob_commit_rf_signal_out),
         .rob_commit_pc_in(rob_commit_pc_out),
         .rob_commit_tag_in(rob_commit_tag_out),
         .rob_commit_data_in(rob_commit_data_out),
@@ -344,7 +355,10 @@ module cpu (
         .alu_dest_tag_in(alu_dest_tag_out),
         .lsb_broadcast_signal_in(lsb_broadcast_signal_out),
         .lsb_result_in(lsb_result_out),
-        .lsb_dest_tag_in(lsb_dest_tag_out)
+        .lsb_dest_tag_in(lsb_dest_tag_out),
+        .rob_broadcast_signal_in(rob_broadcast_signal_out),
+        .rob_result_in(rob_result_out),
+        .rob_dest_tag_in(rob_dest_tag_out)
     );
 
     LoadStoreBuffer lsb (
@@ -372,6 +386,9 @@ module cpu (
         .alu_broadcast_signal_in(alu_broadcast_signal_out),
         .alu_result_in(alu_result_out),
         .alu_dest_tag_in(alu_dest_tag_out),
+        .rob_broadcast_signal_in(rob_broadcast_signal_out),
+        .rob_result_in(rob_result_out),
+        .rob_dest_tag_in(rob_dest_tag_out),
 
         .rob_rollback_in(rob_rollback_out),
         .rob_commit_lsb_signal_in(rob_commit_lsb_signal_out),
@@ -394,6 +411,8 @@ module cpu (
         .rollback_out(rob_rollback_out),
 
         .fet_rollback_pc_out(rob_fet_rollback_pc),
+        .commit_fet_signal_out(rob_commit_fet_signal_out),
+        .fet_branch_taken(rob_fet_branch_taken),
 
         .dec_issue_in(dec_rob_issue),
         .dec_predict_pc_in(dec_rob_predict_pc),
@@ -402,6 +421,7 @@ module cpu (
         .dec_Qj_in(dec_rob_Qj),
         .dec_Qk_in(dec_rob_Qk),
         .dec_pc_in(dec_pc_out),
+        .dec_imm_in(dec_imm_out),
         .dec_next_tag_out(rob_dec_next_tag),
         .dec_Vj_ready_out(rob_dec_Vj_ready),
         .dec_Vk_ready_out(rob_dec_Vk_ready),
@@ -417,6 +437,11 @@ module cpu (
         .lsb_result_in(lsb_result_out),
         .lsb_dest_tag_in(lsb_dest_tag_out),
 
+        .broadcast_signal_out(rob_broadcast_signal_out),
+        .result_out(rob_result_out),
+        .dest_tag_out(rob_dest_tag_out),
+
+        .commit_signal_out(rob_commit_signal_out),
         .commit_rf_signal_out(rob_commit_rf_signal_out),
         .commit_lsb_signal_out(rob_commit_lsb_signal_out),
         .commit_pc_out(rob_commit_pc_out),

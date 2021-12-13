@@ -14,7 +14,7 @@ module LoadStoreBuffer (
 
     output wire                     full_out,
     
-    // ReservationStation && LoadStoreBuffer && ReorderBuffer
+    // broadcast
     output reg                      broadcast_signal_out,
     output reg  [`WORD_RANGE]       result_out,
     output reg  [`ROB_TAG_RANGE]    dest_tag_out,
@@ -33,10 +33,13 @@ module LoadStoreBuffer (
     input  wire [`WORD_RANGE]       dec_imm_in,
     input  wire [2:0]               dec_goal_in,
 
-    // BroadCast ArithmeticLogicUnit
+    // boradcast
     input  wire                     alu_broadcast_signal_in,
     input  wire [`WORD_RANGE]       alu_result_in,
     input  wire [`ROB_TAG_RANGE]    alu_dest_tag_in,
+    input  wire                     rob_broadcast_signal_in,
+    input  wire [`WORD_RANGE]       rob_result_in,
+    input  wire [`ROB_TAG_RANGE]    rob_dest_tag_in,
 
     // ReorderBuffer
     input  wire                     rob_rollback_in,
@@ -53,7 +56,7 @@ module LoadStoreBuffer (
     output reg  [`WORD_RANGE]       mc_data_out
 );
 
-    reg [`LSB_INDEX_RANGE] head, tail, unexecute_committed_store_cnt;
+    reg [`LSB_INDEX_RANGE] head, tail;
     wire [`LSB_INDEX_RANGE] head_next, tail_next;
 
     // use overflow to ensure head_next and tail_next in `LSB_RANGE
@@ -100,9 +103,18 @@ module LoadStoreBuffer (
                          current_op == `LHU ? lh_zext :
                          current_op == `LW  ? lw : `ZERO_WORD;
 
+    reg [`LSB_INDEX_RANGE] unexecute_committed_store_cnt;
+    reg assert_bit;
+    wire unexe_cnt_plus, unexe_cnt_minus;
+    assign unexe_cnt_plus = rob_commit_lsb_signal_in;
+    assign unexe_cnt_minus = head != tail && status == IDLE && ready[head_next] && load_store_flag[head_next];
+
+reg [`WORD_RANGE] temp;
+
     always @(posedge clk) begin
         mc_request_out <= `FALSE;
         broadcast_signal_out <= `FALSE;
+        assert_bit <= `FALSE;
         if (rst) begin
             head <= 0;
             tail <= 0;
@@ -129,28 +141,50 @@ module LoadStoreBuffer (
                 Qj[tail_next] <= dec_Qj_in;
                 Qk[tail_next] <= dec_Qk_in;
                 load_store_goal[tail_next] <= dec_goal_in;
+                if (rob_broadcast_signal_in) begin
+                    if (dec_Qj_in == rob_dest_tag_in) begin
+                        Qj[tail_next] <= `NULL_TAG;
+                        Vj[tail_next] <= rob_result_in;
+                    end
+                    if (dec_Qk_in == rob_dest_tag_in) begin
+                        Qk[tail_next] <= `NULL_TAG;
+                        Vk[tail_next] <= rob_result_in;
+                    end
+                end
                 tail <= tail_next;
             end
             // waiting for commit signal
             if (rob_commit_lsb_signal_in) begin
+                // must commit head_next + unexecute_committed_store_cnt
+                commit_flag[head_next + unexecute_committed_store_cnt] <= `TRUE;
+                if (!(rob_tag[head_next + unexecute_committed_store_cnt] == rob_commit_tag_in && load_store_flag[head_next + unexecute_committed_store_cnt])) assert_bit <= `TRUE;
+            end
+            // update data by snoopy on cdb (i.e., alu && rob)
+            if (alu_broadcast_signal_in) begin
                 for (i = 0; i < `LSB_CAPACITY; i = i + 1) begin
-                    if (in_queue[i] && rob_tag[i] == rob_commit_tag_in) begin
-                        commit_flag[i] <= `TRUE;
-                        if (load_store_flag[i]) // is store
-                            unexecute_committed_store_cnt <= unexecute_committed_store_cnt + 1;
+                    if (in_queue[i]) begin
+                        if (Qj[i] == alu_dest_tag_in) begin
+                            Qj[i] <= `NULL_TAG;
+                            Vj[i] <= alu_result_in;
+                        end
+                        if (Qk[i] == alu_dest_tag_in) begin
+                            Qk[i] <= `NULL_TAG;
+                            Vk[i] <= alu_result_in;
+                        end
                     end
                 end
             end
-            // update data by snoopy on cdb (i.e., alu)
-            if (alu_broadcast_signal_in) begin
+            if (rob_broadcast_signal_in) begin
                 for (i = 0; i < `LSB_CAPACITY; i = i + 1) begin
-                    if (Qj[i] == alu_dest_tag_in && in_queue[i]) begin
-                        Qj[i] <= `NULL_TAG;
-                        Vj[i] <= alu_result_in;
-                    end
-                    if (Qk[i] == alu_dest_tag_in && in_queue[i]) begin
-                        Qk[i] <= `NULL_TAG;
-                        Vk[i] <= alu_result_in;
+                    if (in_queue[i]) begin
+                        if (Qj[i] == rob_dest_tag_in) begin
+                            Qj[i] <= `NULL_TAG;
+                            Vj[i] <= rob_result_in;
+                        end
+                        if (Qk[i] == rob_dest_tag_in) begin
+                            Qk[i] <= `NULL_TAG;
+                            Vk[i] <= rob_result_in;
+                        end
                     end
                 end
             end
@@ -166,7 +200,7 @@ module LoadStoreBuffer (
                 mc_address_out <= Vj[head_next] + imm[head_next];
                 mc_data_out <= Vk[head_next];
                 status <= load_store_flag[head_next] ? STORE : LOAD;
-                if (load_store_flag[head_next]) unexecute_committed_store_cnt <= unexecute_committed_store_cnt - 1;
+                // if (load_store_flag[head_next]) unexecute_committed_store_cnt <= unexecute_committed_store_cnt - 1;
                 head <= head_next;
             end else if (status == STORE) begin
                 if (mc_ready_in) begin
@@ -192,6 +226,7 @@ module LoadStoreBuffer (
                     end
                 end
             end
+            unexecute_committed_store_cnt <= unexecute_committed_store_cnt + (unexe_cnt_plus ? 1 : 0) - (unexe_cnt_minus ? 1 : 0);
         end
     end    
 
@@ -203,7 +238,7 @@ module LoadStoreBuffer (
         end
         for (index = 0; index < `LSB_CAPACITY; index = index + 1) begin : generate_in_queue
             assign in_queue[index] = head < tail ? head < index && index <= tail :
-                                     head > tail ? head < index || index <= tail : 0;
+                                     head > tail ? head < index || index <= tail : `FALSE;
         end
     endgenerate
 
