@@ -4,8 +4,8 @@
  * module Fetcher
  * --------------------------------------------------
  * This module implements Fetcher in tomasulo's algorithm.
- * Meanwhile, it stores pc, has builtin i-cache (to be done)
- * and handles branch prediction (to be done).
+ * Meanwhile, it stores pc, has builtin i-cache and handles
+ * branch prediction.
  */
 
 `define USE_ICACHE

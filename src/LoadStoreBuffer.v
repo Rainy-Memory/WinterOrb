@@ -196,7 +196,6 @@ module LoadStoreBuffer (
                 mc_address_out <= Vj[head_next] + imm[head_next];
                 mc_data_out <= Vk[head_next];
                 status <= load_store_flag[head_next] ? STORE : LOAD;
-                // if (load_store_flag[head_next]) unexecute_committed_store_cnt <= unexecute_committed_store_cnt - 1;
                 head <= head_next;
             end else if (status == STORE) begin
                 if (mc_ready_in) begin
@@ -222,12 +221,9 @@ module LoadStoreBuffer (
                     end
                 end
             end
-            unexecute_committed_store_cnt <= unexecute_committed_store_cnt + (unexe_cnt_plus ? 1 : 0) - (unexe_cnt_minus ? 1 : 0);
+            unexecute_committed_store_cnt <= (unexecute_committed_store_cnt + (unexe_cnt_plus ? 1 : 0) - (unexe_cnt_minus ? 1 : 0)) % `LSB_CAPACITY;
         end
     end
-
-    wire [`ROB_TAG_RANGE] w1,w2,w3,w4,w5,w6;
-    assign w1=Qj[0];assign w2=Qk[0];assign w3=commit_flag[14];assign w4=commit_flag[15];assign w5=commit_flag[0];assign w6=commit_flag[1];
 
     generate
         genvar index;
