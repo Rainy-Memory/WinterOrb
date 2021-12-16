@@ -9,7 +9,7 @@
  * data hazard.
  */
 
-`define PRINT_PREDICTION_RATE
+// `define PRINT_PREDICTION_RATE
 
 module ReorderBuffer (
     input  wire                    clk,
@@ -72,7 +72,7 @@ module ReorderBuffer (
     reg [`ROB_TAG_RANGE] head, tail;
     wire [`ROB_TAG_RANGE] head_next, tail_next;
     reg ready [`ROB_RANGE];
-    reg [`WORD_RANGE] inst [`ROB_RANGE];
+    reg [6:0] opcode [`ROB_RANGE];
     reg [`WORD_RANGE] data [`ROB_RANGE];
     reg [`REG_INDEX_RANGE] dest [`ROB_RANGE];
     reg [`WORD_RANGE] pc [`ROB_RANGE];
@@ -118,7 +118,7 @@ module ReorderBuffer (
             head <= 1;
             for (i = 0; i < `ROB_CAPACITY; i = i + 1) begin
                 ready[i] <= `FALSE;
-                inst[i] <= `ZERO_WORD;
+                opcode[i] <= 7'b0;
                 data[i] <= `ZERO_WORD;
                 dest[i] <= `ZERO_REG_INDEX;
                 pc[i] <= `ZERO_WORD;
@@ -139,7 +139,7 @@ module ReorderBuffer (
             if (dec_issue_in) begin
                 // add new entry
                 ready[tail_next] <= `FALSE;
-                inst[tail_next] <= dec_inst_in;
+                opcode[tail_next] <= dec_inst_in[6:0];
                 data[tail_next] <= `ZERO_WORD;
                 dest[tail_next] <= dec_rd_in;
                 pc[tail_next] <= dec_pc_in;
@@ -159,12 +159,12 @@ module ReorderBuffer (
             end
             // commit when not empty
             // store will automatically committed when it reach rob head
-            if (head != tail && (ready[head_next] || inst[head_next][6:0] == `STORE_OPCODE)) begin
+            if (head != tail && (ready[head_next] || opcode[head_next] == `STORE_OPCODE)) begin
                 ready[head_next] <= `FALSE;
                 commit_signal_out <= `TRUE;
-                commit_rf_signal_out <= inst[head_next][6:0] != `BRANCH_OPCODE && inst[head_next][6:0] != `STORE_OPCODE;
+                commit_rf_signal_out <= opcode[head_next] != `BRANCH_OPCODE && opcode[head_next] != `STORE_OPCODE;
                 // only store in lsb need commit (load will always be committed after its exectuion in lsb)
-                commit_lsb_signal_out <= inst[head_next][6:0] == `STORE_OPCODE;
+                commit_lsb_signal_out <= opcode[head_next] == `STORE_OPCODE;
                 commit_pc_out <= pc[head_next];
                 commit_tag_out <= head_next;
                 commit_data_out <= data[head_next];
@@ -175,15 +175,15 @@ module ReorderBuffer (
                 result_out <= data[head_next];
                 dest_tag_out <= head_next;
                 // rollback
-                if (inst[head_next][6:0] == `JALR_OPCODE  || 
-                    inst[head_next][6:0] == `AUIPC_OPCODE ||
-                    inst[head_next][6:0] == `BRANCH_OPCODE) begin
+                if (opcode[head_next] == `JALR_OPCODE  || 
+                    opcode[head_next] == `AUIPC_OPCODE ||
+                    opcode[head_next] == `BRANCH_OPCODE) begin
                     if (new_pc[head_next] != predict_pc[head_next]) begin
                         need_to_rollback <= `TRUE;
                         rollback_pc <= new_pc[head_next];
                     end
                     // for branch predict
-                    if (inst[head_next][6:0] == `BRANCH_OPCODE) begin
+                    if (opcode[head_next] == `BRANCH_OPCODE) begin
                         commit_fet_signal_out <= `TRUE;
                         fet_branch_taken <= new_pc[head_next] == pc[head_next] + imm[head_next];
 `ifdef PRINT_PREDICTION_RATE

@@ -41,15 +41,15 @@
 `define SHAMT_RANGE                         4:0
 
 // branch prediciton
-`define BP_CAPACITY     14'h2000 // 8192
-`define BP_RANGE        `BP_CAPACITY - 1:0
-`define BP_HASH_RANGE   11:0
+`define BP_CAPACITY       8'd128
+`define BP_RANGE          `BP_CAPACITY - 1:0
+`define BP_HASH_RANGE     8:2
 
 // i-cache
-`define ICACHE_CAPACITY   11'h400 // 1024
+`define ICACHE_CAPACITY   8'd128
 `define ICACHE_RANGE      `ICACHE_CAPACITY - 1:0
-`define TAG_RANGE         31:12
-`define INDEX_RANGE       11:2
+`define TAG_RANGE         31:9
+`define INDEX_RANGE       8:2
 
 
 // opcode
@@ -93,8 +93,7 @@
 `define SLT_FUNCT3     3'b010
 `define SLTU_FUNCT3    3'b011
 `define XOR_FUNCT3     3'b100
-`define SRL_FUNCT3     3'b101
-`define SRA_FUNCT3     3'b101
+`define SRx_FUNCT3     3'b101
 `define OR_FUNCT3      3'b110
 `define AND_FUNCT3     3'b111
 

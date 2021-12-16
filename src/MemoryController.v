@@ -14,6 +14,7 @@
 module MemoryController (
     input  wire                   clk,
     input  wire                   rst,
+    input  wire                   io_buffer_full,
 
     // ram.v
     input  wire [`RAM_DATA_RANGE] ram_data_in,
@@ -65,6 +66,9 @@ module MemoryController (
     reg [2:0] store_goal; // LB: 1, LHW: 2, LW: 4
     reg [`WORD_RANGE] store_data;
 
+    wire could_issue_store;
+    assign could_issue_store = store_address[17:16] == 2'b11 ? !io_buffer_full : `TRUE;
+
     // TODO
     // load:
     // addr: _ _ _ _
@@ -80,11 +84,15 @@ module MemoryController (
         if (rst) begin
             status <= IDLE;
             working_on <= NONE;
+            waiting <= `FALSE;
+            goal <= 3'd0;
+            current <= 3'd0;
+            current_address <= `ZERO_WORD;
+            current_data <= `ZERO_WORD;
+            buffer <= `ZERO_WORD;
             have_inst_request <= `FALSE;
             have_load_request <= `FALSE;
             have_store_request <= `FALSE;
-            buffer <= `ZERO_WORD;
-            current <= 3'd0;
         end else if (rob_rollback_in) begin
             have_inst_request <= `FALSE;
             have_load_request <= `FALSE;
@@ -120,12 +128,12 @@ module MemoryController (
                 end
             end
             if (status == IDLE) begin
-                if (have_store_request) begin
+                if (have_store_request && could_issue_store) begin
                     have_store_request <= `FALSE;
                     status <= BUSY;
                     working_on <= STORE;
-                    // store doesn't need wait 2 cycle
-                    waiting <= `TRUE;
+                    // store doesn't need wait 2 cycle except for io
+                    if (store_address[17:16] == 2'b11) waiting <= `TRUE;
                     goal <= store_goal;
                     current_address <= store_address;
                     current_data <= store_data;
@@ -156,11 +164,11 @@ module MemoryController (
                 if (working_on == STORE) begin
                     if (waiting) waiting <= `FALSE;
                     else begin
-                       if (current == goal) begin
+                        if (current == goal) begin
                             status <= FINISH;
                             current <= 3'd0;
                         end else begin
-                            waiting <= `TRUE;
+                            if (current_address[17:16] == 2'b11) waiting <= `TRUE;
                             ram_rw_signal_out <= `WRITE;
                             ram_address_out <= current_address + current;
                             ram_data_out <= current_data[current * `RAM_DATA_LEN +: `RAM_DATA_LEN];

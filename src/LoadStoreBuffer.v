@@ -118,6 +118,19 @@ module LoadStoreBuffer (
             unexecute_committed_store_cnt <= 0;
             status <= IDLE;
             current_tag <= `NULL_TAG;
+            current_op <= `NOP;
+            for (i = 0; i < `LSB_CAPACITY; i = i + 1) begin
+                load_store_flag[i] <= `FALSE;
+                commit_flag[i] <= `FALSE;
+                op[i] <= `NOP;
+                rob_tag[i] <= `NULL_TAG;
+                imm[i] <= `ZERO_WORD;
+                Vj[i] <= `ZERO_WORD;
+                Vk[i] <= `ZERO_WORD;
+                Qj[i] <= `NULL_TAG;
+                Qk[i] <= `NULL_TAG;
+                load_store_goal[i] <= 3'b0;
+            end
         end else if (rob_rollback_in) begin
             tail <= (head + unexecute_committed_store_cnt) % `LSB_CAPACITY;
             unexecute_committed_store_cnt <= 0;

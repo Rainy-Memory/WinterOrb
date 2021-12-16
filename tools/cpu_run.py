@@ -51,7 +51,6 @@ def iverilog_run(out_file, disable_fev_flag):
         exe("vvp bin/cpu_build")
     else:
         exe("vvp bin/cpu_build > {}".format(out_file))
-    print("")
     print("cpu run finished.")
 
 def run():
@@ -62,6 +61,7 @@ def run():
     only_reg_gen_flag = False
     disable_optimize_flag = False
     disable_forever_flag = False
+    only_gen_testcase = False
     i = 1
     # parse command line arguments
     while i < len(sys.argv):
@@ -87,14 +87,18 @@ def run():
             disable_optimize_flag = True
         elif arg == "--disable-forever":
             disable_forever_flag = True
+        elif arg == "--gen-testcase-only":
+            only_gen_testcase = True
         else:
             print("error: unknown argument")
             exit(1)
         i = i + 1
     # execute
-    if not only_reg_gen_flag:
+    if not (only_reg_gen_flag or only_gen_testcase):
         clear_bin()
     generate_testcase(testcase_name, disable_optimize_flag)
+    if only_gen_testcase:
+        return
     gen_reg_status(reg_gen_flag)
     if only_reg_gen_flag:
         return

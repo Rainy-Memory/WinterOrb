@@ -182,8 +182,10 @@ module Decoder (
                         `SLT_FUNCT3:  begin op_out = `SLT;  end
                         `SLTU_FUNCT3: begin op_out = `SLTU; end
                         `XOR_FUNCT3:  begin op_out = `XOR;  end
-                        `SRL_FUNCT3:  begin op_out = `SRL;  end
-                        `SRA_FUNCT3:  begin op_out = `SRA;  end
+                        `SRx_FUNCT3:  begin
+                            if (fet_inst_in[31:25] == `ZERO_FUNCT7) op_out = `SRL;
+                            else op_out = `SRA;
+                        end
                         `OR_FUNCT3:   begin op_out = `OR;   end
                         `AND_FUNCT3:  begin op_out = `AND;  end
                     endcase

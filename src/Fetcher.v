@@ -78,7 +78,7 @@ module Fetcher (
 `ifdef USE_ICACHE
             for (i = 0; i < `ICACHE_CAPACITY; i = i + 1) begin
                 tags[i] <= 0;
-                cached_insts[i] <= 0;
+                cached_insts[i] <= `ZERO_WORD;
                 valid[i] <= `FALSE;
             end
 `endif

@@ -180,6 +180,7 @@ module cpu (
     MemoryController mc (
         .clk(clk_in),
         .rst(rst_in),
+        .io_buffer_full(io_buffer_full),
 
         .ram_data_in(mem_din),
         .ram_data_out(mem_dout),

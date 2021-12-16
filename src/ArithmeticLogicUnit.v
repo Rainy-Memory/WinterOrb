@@ -33,6 +33,7 @@ module ArithmeticLogicUnit (
     assign broadcast_signal_out = rs_calculate_signal_in;
 
     always @(*) begin
+        rob_new_pc_out = rs_pc_in;
         case (rs_op_in)
             `LUI: result_out = rs_imm_in;
             `AUIPC: begin
