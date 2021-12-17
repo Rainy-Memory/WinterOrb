@@ -45,7 +45,7 @@ def iverilog_run(out_file, disable_fev_flag):
     testbench_name = "testbench"
     if disable_fev_flag:
         testbench_name = "testbench_disable_forever"
-    exe("iverilog -g2012 -o bin/cpu_build -I src/ src/cpu.v src/ram.v src/riscv_top.v src/hci.v src/common/*/*.v sim/{}.v".format(testbench_name))
+    exe("iverilog -g2012 -o bin/cpu_build -I src/ src/*.v src/common/*/*.v sim/{}.v".format(testbench_name))
     print("start running cpu...")
     if out_file == "":
         exe("vvp bin/cpu_build")

@@ -70,8 +70,8 @@ module ArithmeticLogicUnit (
                 rob_new_pc_out = rs_rs1val_in >= rs_rs2val_in ? rs_pc_in + rs_imm_in : rs_pc_in + 4;
             end
             `ADDI:  result_out = rs_rs1val_in + rs_imm_in;
-            `SLTI:  result_out = $signed(rs_rs1val_in) < $signed(rs_imm_in) ? 1 : 0;
-            `SLTIU: result_out = rs_rs1val_in < rs_imm_in ? 1 : 0;
+            `SLTI:  result_out = $signed(rs_rs1val_in) < $signed(rs_imm_in);
+            `SLTIU: result_out = rs_rs1val_in < rs_imm_in;
             `XORI:  result_out = rs_rs1val_in ^ rs_imm_in;
             `ORI:   result_out = rs_rs1val_in | rs_imm_in;
             `ANDI:  result_out = rs_rs1val_in & rs_imm_in;
@@ -83,15 +83,12 @@ module ArithmeticLogicUnit (
             `SLL:   result_out = rs_rs1val_in << rs_rs2val_in;
             `SRL:   result_out = rs_rs1val_in >> rs_rs2val_in;
             `SRA:   result_out = rs_rs1val_in >>> rs_rs2val_in;
-            `SLT:   result_out = $signed(rs_rs1val_in) < $signed(rs_rs2val_in) ? 1 : 0;
-            `SLTU:  result_out = rs_rs1val_in < rs_rs2val_in ? 1 : 0;
+            `SLT:   result_out = $signed(rs_rs1val_in) < $signed(rs_rs2val_in);
+            `SLTU:  result_out = rs_rs1val_in < rs_rs2val_in;
             `XOR:   result_out = rs_rs1val_in ^ rs_rs2val_in;
             `OR:    result_out = rs_rs1val_in | rs_rs2val_in;
             `AND:   result_out = rs_rs1val_in & rs_rs2val_in;
-            default: begin
-                result_out = `ZERO_WORD;
-                rob_new_pc_out = rs_pc_in;
-            end
+            default: result_out = `ZERO_WORD;
         endcase
     end
     

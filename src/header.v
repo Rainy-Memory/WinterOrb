@@ -51,7 +51,6 @@
 `define TAG_RANGE         31:9
 `define INDEX_RANGE       8:2
 
-
 // opcode
 `define LUI_OPCODE         7'b0110111
 `define AUIPC_OPCODE       7'b0010111

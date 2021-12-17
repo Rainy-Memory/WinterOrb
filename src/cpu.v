@@ -1,13 +1,4 @@
 `include "header.v"
-`include "MemoryController.v"
-`include "Fetcher.v"
-`include "Decoder.v"
-`include "Dispatcher.v"
-`include "ArithmeticLogicUnit.v"
-`include "LoadStoreBuffer.v"
-`include "RegisterFile.v"
-`include "ReorderBuffer.v"
-`include "ReservationStation.v"
 
 // RISCV32I CPU top module
 // port modification allowed for debugging purposes
@@ -136,6 +127,10 @@ module cpu (
     wire [`WORD_RANGE] rob_fet_rollback_pc;
     wire               rob_commit_fet_signal_out;
     wire               rob_fet_branch_taken;
+
+    // LoadStoreBuffer to ReorderBuffer
+    wire lsb_rob_mark_as_io_load;
+    wire [`ROB_TAG_RANGE] lsb_rob_io_load_tag;
 
     // Global Signal
     wire rs_full_out;
@@ -395,6 +390,9 @@ module cpu (
         .rob_commit_lsb_signal_in(rob_commit_lsb_signal_out),
         .rob_commit_tag_in(rob_commit_tag_out),
 
+        .rob_mark_as_io_load_out(lsb_rob_mark_as_io_load),
+        .rob_io_load_tag_out(lsb_rob_io_load_tag),
+
         .mc_ready_in(mc_lsb_ready),
         .mc_data_in(mc_lsb_data),
         .mc_request_out(lsb_mc_request),
@@ -441,6 +439,9 @@ module cpu (
         .broadcast_signal_out(rob_broadcast_signal_out),
         .result_out(rob_result_out),
         .dest_tag_out(rob_dest_tag_out),
+
+        .lsb_mark_as_io_load_in(lsb_rob_mark_as_io_load),
+        .lsb_io_load_tag_in(lsb_rob_io_load_tag),
 
         .commit_signal_out(rob_commit_signal_out),
         .commit_rf_signal_out(rob_commit_rf_signal_out),

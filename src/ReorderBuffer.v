@@ -54,6 +54,11 @@ module ReorderBuffer (
     output reg  [`WORD_RANGE]       result_out,
     output reg  [`ROB_TAG_RANGE]    dest_tag_out,
 
+    // LoadStoreBuffer
+    input  wire                     lsb_mark_as_io_load_in,
+    input  wire [`ROB_TAG_RANGE]    lsb_io_load_tag_in,
+
+
     // RegisterFile && LoadStoreBuffer
     output reg                     commit_signal_out,
     output reg                     commit_rf_signal_out,
@@ -79,6 +84,7 @@ module ReorderBuffer (
     reg [`WORD_RANGE] imm [`ROB_RANGE];
     reg [`WORD_RANGE] predict_pc [`ROB_RANGE];
     reg [`WORD_RANGE] new_pc [`ROB_RANGE];
+    reg io_load_ready [`ROB_RANGE];
     wire in_queue [`ROB_RANGE];
 
     reg need_to_rollback;
@@ -125,6 +131,7 @@ module ReorderBuffer (
                 imm[i] <= `ZERO_WORD;
                 predict_pc[i] <= `ZERO_WORD;
                 new_pc[i] <= `ZERO_WORD;
+                io_load_ready[i] <= `FALSE;
             end
         end else if (need_to_rollback) begin
             // rollback:
@@ -157,41 +164,49 @@ module ReorderBuffer (
                 data[lsb_dest_tag_in] <= lsb_result_in;
                 ready[lsb_dest_tag_in] <= `TRUE;
             end
+            if (lsb_mark_as_io_load_in && in_queue[lsb_io_load_tag_in]) begin
+                io_load_ready[lsb_io_load_tag_in] <= `TRUE;
+            end
             // commit when not empty
-            // store will automatically committed when it reach rob head
-            if (head != tail && (ready[head_next] || opcode[head_next] == `STORE_OPCODE)) begin
-                ready[head_next] <= `FALSE;
-                commit_signal_out <= `TRUE;
-                commit_rf_signal_out <= opcode[head_next] != `BRANCH_OPCODE && opcode[head_next] != `STORE_OPCODE;
-                // only store in lsb need commit (load will always be committed after its exectuion in lsb)
-                commit_lsb_signal_out <= opcode[head_next] == `STORE_OPCODE;
-                commit_pc_out <= pc[head_next];
-                commit_tag_out <= head_next;
-                commit_data_out <= data[head_next];
-                commit_target_out <= dest[head_next];
-                head <= head_next;
-                // broadcast
-                broadcast_signal_out <= `TRUE;
-                result_out <= data[head_next];
-                dest_tag_out <= head_next;
-                // rollback
-                if (opcode[head_next] == `JALR_OPCODE  || 
-                    opcode[head_next] == `AUIPC_OPCODE ||
-                    opcode[head_next] == `BRANCH_OPCODE) begin
-                    if (new_pc[head_next] != predict_pc[head_next]) begin
-                        need_to_rollback <= `TRUE;
-                        rollback_pc <= new_pc[head_next];
-                    end
-                    // for branch predict
-                    if (opcode[head_next] == `BRANCH_OPCODE) begin
-                        commit_fet_signal_out <= `TRUE;
-                        fet_branch_taken <= new_pc[head_next] == pc[head_next] + imm[head_next];
+            if (head != tail) begin
+                // store will automatically committed when it reach rob head
+                if (ready[head_next] || opcode[head_next] == `STORE_OPCODE) begin
+                    ready[head_next] <= `FALSE;
+                    commit_signal_out <= `TRUE;
+                    commit_rf_signal_out <= opcode[head_next] != `BRANCH_OPCODE && opcode[head_next] != `STORE_OPCODE;
+                    // only store and io load in lsb need commit (load will always be committed after its exectuion in lsb)
+                    commit_lsb_signal_out <= opcode[head_next] == `STORE_OPCODE;
+                    commit_pc_out <= pc[head_next];
+                    commit_tag_out <= head_next;
+                    commit_data_out <= data[head_next];
+                    commit_target_out <= dest[head_next];
+                    head <= head_next;
+                    // broadcast
+                    broadcast_signal_out <= `TRUE;
+                    result_out <= data[head_next];
+                    dest_tag_out <= head_next;
+                    // rollback
+                    if (opcode[head_next] == `JALR_OPCODE  || 
+                        opcode[head_next] == `AUIPC_OPCODE ||
+                        opcode[head_next] == `BRANCH_OPCODE) begin
+                        if (new_pc[head_next] != predict_pc[head_next]) begin
+                            need_to_rollback <= `TRUE;
+                            rollback_pc <= new_pc[head_next];
+                        end
+                        // for branch predict
+                        if (opcode[head_next] == `BRANCH_OPCODE) begin
+                            commit_fet_signal_out <= `TRUE;
+                            fet_branch_taken <= new_pc[head_next] == pc[head_next] + imm[head_next];
 `ifdef PRINT_PREDICTION_RATE
-                        if (new_pc[head_next] == predict_pc[head_next]) success = success + 1;
-                        total = total + 1;
-                        $fdisplay(rob_log, "branch_taken: %s, success_rate = %d / %d", new_pc[head_next] == predict_pc[head_next] ? "true" : "false", success, total);
+                            if (new_pc[head_next] == predict_pc[head_next]) success = success + 1;
+                            total = total + 1;
+                            $fdisplay(rob_log, "branch_taken: %s, success_rate = %d / %d", new_pc[head_next] == predict_pc[head_next] ? "true" : "false", success, total);
 `endif
+                        end
                     end
+                end else if (io_load_ready[head_next]) begin
+                    io_load_ready[head_next] <= `FALSE;
+                    commit_lsb_signal_out <= `TRUE;
                 end
             end
         end

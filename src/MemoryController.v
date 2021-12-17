@@ -162,8 +162,11 @@ module MemoryController (
                 end
             end else if (status == BUSY) begin
                 if (working_on == STORE) begin
-                    if (waiting) waiting <= `FALSE;
-                    else begin
+                    if (waiting) begin 
+                        waiting <= `FALSE;
+                        ram_address_out <= 0;
+                        ram_rw_signal_out <= `READ;
+                    end else begin
                         if (current == goal) begin
                             status <= FINISH;
                             current <= 3'd0;
@@ -176,8 +179,11 @@ module MemoryController (
                         end
                     end
                 end else begin // working_on == INSTRUCTION || LOAD
-                    if (waiting) waiting <= `FALSE;
-                    else begin
+                    if (waiting) begin 
+                        waiting <= `FALSE;
+                        ram_address_out <= 0;
+                        ram_rw_signal_out <= `READ;
+                    end else begin
                         buffer[current * `RAM_DATA_LEN +: `RAM_DATA_LEN] <= ram_data_in;
                         current <= current + 1;
                         if (current == goal - 1) begin

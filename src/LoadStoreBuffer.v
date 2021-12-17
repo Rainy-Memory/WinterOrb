@@ -46,6 +46,10 @@ module LoadStoreBuffer (
     input  wire                     rob_commit_lsb_signal_in,
     input  wire [`ROB_TAG_RANGE]    rob_commit_tag_in,
 
+    // ReorderBuffer for io load
+    output reg                      rob_mark_as_io_load_out,
+    output reg  [`ROB_TAG_RANGE]    rob_io_load_tag_out,
+
     // MemoryController
     input  wire                     mc_ready_in,
     input  wire [`WORD_RANGE]       mc_data_in,
@@ -73,6 +77,7 @@ module LoadStoreBuffer (
     reg [`ROB_TAG_RANGE] Qj [`LSB_RANGE];
     reg [`ROB_TAG_RANGE] Qk [`LSB_RANGE];
     reg [2:0] load_store_goal [`LSB_RANGE];
+    wire [`WORD_RANGE] address [`LSB_RANGE];
 
     wire ready [`LSB_RANGE];
     wire in_queue [`LSB_RANGE];
@@ -83,6 +88,7 @@ module LoadStoreBuffer (
     reg [1:0] status;
     reg [`ROB_TAG_RANGE] current_tag;
     reg [`INNER_INST_RANGE] current_op;
+    reg current_io_load_has_notice_rob;
 
     wire [`WORD_RANGE] lb_zext;
     wire [`WORD_RANGE] lh_zext;
@@ -102,23 +108,23 @@ module LoadStoreBuffer (
                          current_op == `LHU ? lh_zext :
                          current_op == `LW  ? lw : `ZERO_WORD;
 
-    reg [`LSB_INDEX_RANGE] unexecute_committed_store_cnt;
-    reg assert_bit;
+    reg [`LSB_INDEX_RANGE] unexecute_committed_cnt;
     wire unexe_cnt_plus, unexe_cnt_minus;
     assign unexe_cnt_plus = rob_commit_lsb_signal_in;
-    assign unexe_cnt_minus = head != tail && status == IDLE && ready[head_next] && load_store_flag[head_next];
+    assign unexe_cnt_minus = head != tail && status == IDLE && ready[head_next] && (load_store_flag[head_next] || address[head_next][17:16] == 2'b11);
 
     always @(posedge clk) begin
         mc_request_out <= `FALSE;
         broadcast_signal_out <= `FALSE;
-        assert_bit <= `FALSE;
+        rob_mark_as_io_load_out <= `FALSE;
         if (rst) begin
             head <= 0;
             tail <= 0;
-            unexecute_committed_store_cnt <= 0;
+            unexecute_committed_cnt <= 0;
             status <= IDLE;
             current_tag <= `NULL_TAG;
             current_op <= `NOP;
+            current_io_load_has_notice_rob <= `FALSE;
             for (i = 0; i < `LSB_CAPACITY; i = i + 1) begin
                 load_store_flag[i] <= `FALSE;
                 commit_flag[i] <= `FALSE;
@@ -132,8 +138,8 @@ module LoadStoreBuffer (
                 load_store_goal[i] <= 3'b0;
             end
         end else if (rob_rollback_in) begin
-            tail <= (head + unexecute_committed_store_cnt) % `LSB_CAPACITY;
-            unexecute_committed_store_cnt <= 0;
+            tail <= (head + unexecute_committed_cnt) % `LSB_CAPACITY;
+            unexecute_committed_cnt <= 0;
             if (status == LOAD) begin
                 status <= IDLE;
                 current_tag <= `NULL_TAG;
@@ -163,10 +169,10 @@ module LoadStoreBuffer (
                 tail <= tail_next;
             end
             // waiting for commit signal
+            // only store and io load could be committed by rob
             if (rob_commit_lsb_signal_in) begin
-                // must commit head_next + unexecute_committed_store_cnt
-                commit_flag[(head_next + unexecute_committed_store_cnt) % `LSB_CAPACITY] <= `TRUE;
-                if (!(rob_tag[(head_next + unexecute_committed_store_cnt) % `LSB_CAPACITY] == rob_commit_tag_in && load_store_flag[(head_next + unexecute_committed_store_cnt) % `LSB_CAPACITY])) assert_bit <= `TRUE;
+                // must commit head_next + unexecute_committed_cnt
+                commit_flag[(head_next + unexecute_committed_cnt) % `LSB_CAPACITY] <= `TRUE;
             end
             // update data by snoopy on cdb (i.e., alu && rob)
             if (alu_broadcast_signal_in) begin
@@ -198,18 +204,25 @@ module LoadStoreBuffer (
                 end
             end
             // issue queue head when not empty
-            if (head != tail && status == IDLE && ready[head_next]) begin
-                rob_tag[head_next] <= `NULL_TAG;
-                commit_flag[head_next] <= `FALSE;
-                mc_request_out <= `TRUE;
-                mc_goal_out <= load_store_goal[head_next];
-                mc_rw_signal_out <= load_store_flag[head_next];
-                current_tag <= rob_tag[head_next];
-                current_op <= op[head_next];
-                mc_address_out <= Vj[head_next] + imm[head_next];
-                mc_data_out <= Vk[head_next];
-                status <= load_store_flag[head_next] ? STORE : LOAD;
-                head <= head_next;
+            if (head != tail && status == IDLE) begin
+                if (ready[head_next]) begin
+                    rob_tag[head_next] <= `NULL_TAG;
+                    commit_flag[head_next] <= `FALSE;
+                    mc_request_out <= `TRUE;
+                    mc_goal_out <= load_store_goal[head_next];
+                    mc_rw_signal_out <= load_store_flag[head_next];
+                    current_tag <= rob_tag[head_next];
+                    current_op <= op[head_next];
+                    mc_address_out <= address[head_next];
+                    mc_data_out <= Vk[head_next];
+                    status <= load_store_flag[head_next] ? STORE : LOAD;
+                    head <= head_next;
+                    current_io_load_has_notice_rob <= `FALSE;
+                end else if (!load_store_flag[head_next] && Qj[head_next] == `NULL_TAG && address[head_next][17:16] == 2'b11 && !current_io_load_has_notice_rob) begin
+                    rob_mark_as_io_load_out <= `TRUE;
+                    rob_io_load_tag_out <= rob_tag[head_next];
+                    current_io_load_has_notice_rob <= `TRUE;
+                end                
             end else if (status == STORE) begin
                 if (mc_ready_in) begin
                     status <= IDLE;
@@ -234,7 +247,7 @@ module LoadStoreBuffer (
                     end
                 end
             end
-            unexecute_committed_store_cnt <= (unexecute_committed_store_cnt + (unexe_cnt_plus ? 1 : 0) - (unexe_cnt_minus ? 1 : 0)) % `LSB_CAPACITY;
+            unexecute_committed_cnt <= (unexecute_committed_cnt + (unexe_cnt_plus ? 1 : 0) - (unexe_cnt_minus ? 1 : 0)) % `LSB_CAPACITY;
         end
     end
 
@@ -242,11 +255,15 @@ module LoadStoreBuffer (
         genvar index;
         for (index = 0; index < `LSB_CAPACITY; index = index + 1) begin : generate_ready
             // load doesn't need wait commit
-            assign ready[index] = load_store_flag[index] ? commit_flag[index] && Qj[index] == `NULL_TAG && Qk[index] == `NULL_TAG : Qj[index] == `NULL_TAG;
+            assign ready[index] = load_store_flag[index] ? commit_flag[index] && Qj[index] == `NULL_TAG && Qk[index] == `NULL_TAG : 
+                                  Qj[index] == `NULL_TAG ? (address[index][17:16] == 2'b11 ? commit_flag[index] : `TRUE) : `FALSE;
         end
         for (index = 0; index < `LSB_CAPACITY; index = index + 1) begin : generate_in_queue
             assign in_queue[index] = head < tail ? (head < index && index <= tail) :
                                      head > tail ? (head < index || index <= tail) : `FALSE;
+        end
+        for (index = 0; index < `LSB_CAPACITY; index = index + 1) begin : generate_address
+            assign address[index] = Vj[index] + imm[index];
         end
     endgenerate
 
