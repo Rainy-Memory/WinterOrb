@@ -10,6 +10,8 @@ def exe(cmd):
 def clear_bin():
     exe("rm bin/*.txt")
 
+testcase_with_stdin = ["array_test1", "array_test2", "hanoi", "statement_test", "superloop"]
+
 def generate_testcase(name, disable_opt_flag):
     # clearing test dir
     exe("rm -rf test")
@@ -30,6 +32,8 @@ def generate_testcase(name, disable_opt_flag):
     exe("{}riscv32-unknown-elf-objcopy -O binary ./test/test.om ./test/test.bin".format(rpath))
     # decompile (for debugging)
     exe("{}riscv32-unknown-elf-objdump -D ./test/test.om > ./test/test.dump".format(rpath))
+    if (name in testcase_with_stdin):
+        exe("cp ./testcase/{}.in ./test/test.in".format(name))
 
 def gen_reg_status(gen):
     if not gen:
@@ -89,6 +93,19 @@ def run():
             disable_forever_flag = True
         elif arg == "--gen-testcase-only":
             only_gen_testcase = True
+        elif arg == "--help" or arg == "-h":
+            print("welcome to rainy memory's cpu run tools!")
+            print("now support:")
+            print("------------------------------------------------------------------------------------------------")
+            print("-h / --help        show help message.")
+            print("-o <arg>           redirect cpu output to <arg> under /bin.")
+            print("-case <arg>        run testcase <arg>. default setting is test.")
+            print("--gen-reg          generate std register value after each commit. (c++ program powered by was_n)")
+            print("--gen-reg-only     only generate register status without running cpu.")
+            print("--disable-opt      disable -O2 argument when toolchains compile testcase.")
+            print("--disable-forever  force quit cpu after 100,000 tick.")
+            print("------------------------------------------------------------------------------------------------")
+            return
         else:
             print("error: unknown argument")
             exit(1)

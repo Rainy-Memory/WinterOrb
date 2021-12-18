@@ -172,9 +172,13 @@ module cpu (
     wire [`WORD_RANGE]    rob_result_out;
     wire [`ROB_TAG_RANGE] rob_dest_tag_out;
 
+    // inner rst
+    wire inner_rst;
+    assign inner_rst = rst_in | ~rdy_in;
+
     MemoryController mc (
         .clk(clk_in),
-        .rst(rst_in),
+        .rst(inner_rst),
         .io_buffer_full(io_buffer_full),
 
         .ram_data_in(mem_din),
@@ -200,7 +204,7 @@ module cpu (
 
     Fetcher fet (
         .clk(clk_in),
-        .rst(rst_in),
+        .rst(inner_rst),
         
         .mc_ready_in(mc_fet_ready),
         .mc_instruction_in(mc_fet_instruction),
@@ -281,7 +285,7 @@ module cpu (
 
     RegisterFile rf (
         .clk(clk_in),
-        .rst(rst_in),
+        .rst(inner_rst),
 
         .dec_next_tag_in(dec_next_tag_out),
         .dec_rs1_in(dec_rf_rs1),
@@ -320,7 +324,7 @@ module cpu (
 
     ReservationStation rs (
         .clk(clk_in),
-        .rst(rst_in),
+        .rst(inner_rst),
 
         .full_out(rs_full_out),
 
@@ -359,7 +363,7 @@ module cpu (
 
     LoadStoreBuffer lsb (
         .clk(clk_in),
-        .rst(rst_in),
+        .rst(inner_rst),
 
         .full_out(lsb_full_out),
 
@@ -404,7 +408,7 @@ module cpu (
 
     ReorderBuffer rob (
         .clk(clk_in),
-        .rst(rst_in),
+        .rst(inner_rst),
 
         .full_out(rob_full_out),
         .rollback_out(rob_rollback_out),

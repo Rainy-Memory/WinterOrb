@@ -84,7 +84,7 @@ module ReorderBuffer (
     reg [`WORD_RANGE] imm [`ROB_RANGE];
     reg [`WORD_RANGE] predict_pc [`ROB_RANGE];
     reg [`WORD_RANGE] new_pc [`ROB_RANGE];
-    reg io_load_ready [`ROB_RANGE];
+    reg is_io_load [`ROB_RANGE];
     wire in_queue [`ROB_RANGE];
 
     reg need_to_rollback;
@@ -131,7 +131,7 @@ module ReorderBuffer (
                 imm[i] <= `ZERO_WORD;
                 predict_pc[i] <= `ZERO_WORD;
                 new_pc[i] <= `ZERO_WORD;
-                io_load_ready[i] <= `FALSE;
+                is_io_load[i] <= `FALSE;
             end
         end else if (need_to_rollback) begin
             // rollback:
@@ -165,7 +165,7 @@ module ReorderBuffer (
                 ready[lsb_dest_tag_in] <= `TRUE;
             end
             if (lsb_mark_as_io_load_in && in_queue[lsb_io_load_tag_in]) begin
-                io_load_ready[lsb_io_load_tag_in] <= `TRUE;
+                is_io_load[lsb_io_load_tag_in] <= `TRUE;
             end
             // commit when not empty
             if (head != tail) begin
@@ -204,8 +204,8 @@ module ReorderBuffer (
 `endif
                         end
                     end
-                end else if (io_load_ready[head_next]) begin
-                    io_load_ready[head_next] <= `FALSE;
+                end else if (is_io_load[head_next]) begin
+                    is_io_load[head_next] <= `FALSE;
                     commit_lsb_signal_out <= `TRUE;
                 end
             end

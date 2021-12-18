@@ -69,15 +69,6 @@ module MemoryController (
     wire could_issue_store;
     assign could_issue_store = store_address[17:16] == 2'b11 ? !io_buffer_full : `TRUE;
 
-    // TODO
-    // load:
-    // addr: _ _ _ _
-    // recv:     _ _ _ _
-    // io: extrally wait 1 cycle each time
-    // store to io:
-    // addr: _     _     _
-    // scss:       _     _     _
-
     always @(posedge clk) begin
         fet_ready_out <= `FALSE;
         lsb_ready_out <= `FALSE;
@@ -132,8 +123,7 @@ module MemoryController (
                     have_store_request <= `FALSE;
                     status <= BUSY;
                     working_on <= STORE;
-                    // store doesn't need wait 2 cycle except for io
-                    if (store_address[17:16] == 2'b11) waiting <= `TRUE;
+                    waiting <= `TRUE;
                     goal <= store_goal;
                     current_address <= store_address;
                     current_data <= store_data;
@@ -171,7 +161,7 @@ module MemoryController (
                             status <= FINISH;
                             current <= 3'd0;
                         end else begin
-                            if (current_address[17:16] == 2'b11) waiting <= `TRUE;
+                            waiting <= `TRUE;
                             ram_rw_signal_out <= `WRITE;
                             ram_address_out <= current_address + current;
                             ram_data_out <= current_data[current * `RAM_DATA_LEN +: `RAM_DATA_LEN];
