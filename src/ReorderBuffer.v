@@ -9,8 +9,6 @@
  * data hazard.
  */
 
-// `define PRINT_PREDICTION_RATE
-
 module ReorderBuffer (
     input  wire                    clk,
     input  wire                    rst,

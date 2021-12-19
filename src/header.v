@@ -1,5 +1,11 @@
 `default_nettype none
 
+// options
+`define USE_ICACHE
+// `define PRINT_PREDICTION_RATE
+// `define PRINT_RF_STATUS
+`define DEBUG
+
 // log paths
 `define FET_LOG_PATH   "bin/fetcher_log.txt"
 `define IB_LOG_PATH    "bin/instruction_buffer_log.txt"

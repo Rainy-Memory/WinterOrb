@@ -8,8 +8,6 @@
  * branch prediction.
  */
 
-`define USE_ICACHE
-
 module Fetcher (
     input  wire               clk,
     input  wire               rst,

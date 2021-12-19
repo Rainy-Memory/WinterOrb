@@ -187,6 +187,8 @@ module MemoryController (
                     end
                 end
             end else begin // status == FINISH
+                ram_address_out <= 0;
+                ram_rw_signal_out <= `READ;
                 if (working_on == STORE) begin
                     lsb_ready_out <= `TRUE;
                 end else if (working_on == LOAD) begin

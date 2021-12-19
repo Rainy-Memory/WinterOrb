@@ -58,7 +58,10 @@ def iverilog_run(out_file, disable_fev_flag):
     print("cpu run finished.")
 
 def run():
-    # exe("set -e")
+    if not os.path.exists("./bin"):
+        exe("mkdir bin")
+    if not os.path.exists("./test"):
+        exe("mkdir test")
     testcase_name = "test"
     output_file = ""
     reg_gen_flag = False

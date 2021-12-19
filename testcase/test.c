@@ -125,7 +125,6 @@ int main() {
         move();
         merge();
         show();
-        // sleep(10); // to prevent UART buffer from overflowing
     }
     print("Total: ");
     outl(count);

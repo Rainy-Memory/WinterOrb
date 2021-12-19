@@ -8,8 +8,6 @@
  * Vj, Vk, Qj, Qk for RS and LSB.
  */
 
-`define PRINT_RF_STATUS
-
 
 module RegisterFile (
     input  wire                    clk,
