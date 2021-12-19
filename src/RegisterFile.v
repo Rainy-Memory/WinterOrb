@@ -8,7 +8,6 @@
  * Vj, Vk, Qj, Qk for RS and LSB.
  */
 
-
 module RegisterFile (
     input  wire                    clk,
     input  wire                    rst,

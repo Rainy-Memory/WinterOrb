@@ -261,7 +261,6 @@ module LoadStoreBuffer (
         for (index = 0; index < `LSB_CAPACITY; index = index + 1) begin : generate_in_queue
             assign in_queue[index] = head < tail ? (head < index && index <= tail) :
                                      head > tail ? (head < index || index <= tail) : `FALSE;
-            // assign in_queue[index] = `TRUE;
         end
         for (index = 0; index < `LSB_CAPACITY; index = index + 1) begin : generate_address
             assign address[index] = Vj[index] + imm[index];

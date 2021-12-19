@@ -184,8 +184,7 @@ module ReorderBuffer (
                     result_out <= data[head_next];
                     dest_tag_out <= head_next;
                     // rollback
-                    if (opcode[head_next] == `JALR_OPCODE  || 
-                        opcode[head_next] == `AUIPC_OPCODE ||
+                    if (opcode[head_next] == `JALR_OPCODE ||
                         opcode[head_next] == `BRANCH_OPCODE) begin
                         if (new_pc[head_next] != predict_pc[head_next]) begin
                             need_to_rollback <= `TRUE;
@@ -216,7 +215,6 @@ module ReorderBuffer (
         for (index = 1; index < `ROB_CAPACITY; index = index + 1) begin : generate_in_queue
             assign in_queue[index] = head < tail ? head < index && index <= tail :
                                      head > tail ? head < index || index <= tail : `FALSE;
-            // assign in_queue[index] = `TRUE;
         end
     endgenerate
 

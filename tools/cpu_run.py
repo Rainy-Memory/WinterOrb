@@ -1,6 +1,9 @@
 import os
 import sys
 
+testcase_with_stdin = ["array_test1", "array_test2", "hanoi", "statement_test", "superloop", "tak"]
+testcase = ["array_test1", "array_test2", "basicopt1", "bulgarian", "expr", "gcd", "hanoi", "heart", "looper", "lvalue2", "magic", "manyarguments", "multiarray", "pi", "qsort", "queens", "statement_test", "superloop", "tak", "test", "testsleep", "uartboom"]
+
 riscv_prefix = "/opt/riscv/"
 rpath = "{}bin/".format(riscv_prefix)
 
@@ -9,8 +12,6 @@ def exe(cmd):
 
 def clear_bin():
     exe("rm bin/*.txt")
-
-testcase_with_stdin = ["array_test1", "array_test2", "hanoi", "statement_test", "superloop"]
 
 def generate_testcase(name, disable_opt_flag):
     # clearing test dir
@@ -74,17 +75,20 @@ def run():
     while i < len(sys.argv):
         arg = sys.argv[i]
         if arg == "-o":
-            if (i == len(sys.argv)):
+            if i == len(sys.argv):
                 print("error: -o without argument")
                 exit(1)
             i = i + 1
             output_file = "bin/" + sys.argv[i]
         elif arg == "-case":
-            if (i == len(sys.argv)):
+            if i == len(sys.argv):
                 print("error: -case without argument")
                 exit(1)
             i = i + 1
             testcase_name = sys.argv[i]
+            if testcase_name not in testcase:
+                print("error: case not find")
+                exit(1)
         elif arg == "--gen-reg":
             reg_gen_flag = True
         elif arg == "--gen-reg-only":
