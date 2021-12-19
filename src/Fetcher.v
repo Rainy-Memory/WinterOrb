@@ -44,8 +44,8 @@ module Fetcher (
 
     reg [`WORD_RANGE] pc;
     reg [`WORD_RANGE] inst_to_be_issued;
-    reg [`WORD_RANGE] immB;
     reg [`WORD_RANGE] immJ;
+    reg [`WORD_RANGE] immB;
 
     // branch prediction
     integer i;
@@ -69,8 +69,8 @@ module Fetcher (
         if (rst) begin
             pc <= `ZERO_WORD;
             inst_to_be_issued <= `ZERO_WORD;
-            immB <= `ZERO_WORD;
             immJ <= `ZERO_WORD;
+            immB <= `ZERO_WORD;
             status <= IDLE;
             for (i = 0; i < `BP_CAPACITY; i = i + 1) begin
                 branch_history_table[i] <= 2'b10;
@@ -131,14 +131,9 @@ module Fetcher (
                     if (inst_to_be_issued[6:0] == `JAL_OPCODE) begin
                         pc <= pc + immJ;
                         dec_predict_pc_out <= pc + immJ;
-                    end else if (inst_to_be_issued[6:0] == `BRANCH_OPCODE) begin
-                        if (branch_history_table[pc[`BP_HASH_RANGE]][1]) begin
-                            pc <= pc + immB;
-                            dec_predict_pc_out <= pc + immB;
-                        end else begin
-                            pc <= pc + 4;
-                            dec_predict_pc_out <= pc + 4;
-                        end
+                    end else if (inst_to_be_issued[6:0] == `BRANCH_OPCODE && branch_history_table[pc[`BP_HASH_RANGE]][1]) begin
+                        pc <= pc + immB;
+                        dec_predict_pc_out <= pc + immB;
                     end else begin // JALR always need rollback
                         pc <= pc + 4;
                         dec_predict_pc_out <= pc + 4;

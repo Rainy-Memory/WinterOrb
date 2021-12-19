@@ -87,7 +87,7 @@ module MemoryController (
         end else if (rob_rollback_in) begin
             have_inst_request <= `FALSE;
             have_load_request <= `FALSE;
-            if (status != IDLE && (working_on == INSTRUCTION || working_on == LOAD)) begin
+            if (status != IDLE && (working_on == INSTRUCTION || (working_on == LOAD))) begin
                 status <= IDLE;
                 working_on <= NONE;
                 buffer <= `ZERO_WORD;

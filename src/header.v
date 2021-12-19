@@ -3,8 +3,7 @@
 // options
 `define USE_ICACHE
 // `define PRINT_PREDICTION_RATE
-// `define PRINT_RF_STATUS
-`define DEBUG
+`define PRINT_RF_STATUS
 
 // log paths
 `define FET_LOG_PATH   "bin/fetcher_log.txt"

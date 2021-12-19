@@ -139,10 +139,12 @@ module LoadStoreBuffer (
             end
         end else if (rob_rollback_in) begin
             tail <= (head + unexecute_committed_cnt) % `LSB_CAPACITY;
-            unexecute_committed_cnt <= 0;
+            // unexecute_committed_cnt <= 0;
             if (status == LOAD) begin
                 status <= IDLE;
                 current_tag <= `NULL_TAG;
+            end else if (status == STORE) begin
+                if (mc_ready_in) status <= IDLE;
             end
         end else begin
             if (dis_new_inst_signal_in) begin
@@ -224,9 +226,7 @@ module LoadStoreBuffer (
                     current_io_load_has_notice_rob <= `TRUE;
                 end                
             end else if (status == STORE) begin
-                if (mc_ready_in) begin
-                    status <= IDLE;
-                end
+                if (mc_ready_in) status <= IDLE;
             end else if (status == LOAD)  begin
                 if (mc_ready_in) begin
                     status <= IDLE;
@@ -261,6 +261,7 @@ module LoadStoreBuffer (
         for (index = 0; index < `LSB_CAPACITY; index = index + 1) begin : generate_in_queue
             assign in_queue[index] = head < tail ? (head < index && index <= tail) :
                                      head > tail ? (head < index || index <= tail) : `FALSE;
+            // assign in_queue[index] = `TRUE;
         end
         for (index = 0; index < `LSB_CAPACITY; index = index + 1) begin : generate_address
             assign address[index] = Vj[index] + imm[index];
