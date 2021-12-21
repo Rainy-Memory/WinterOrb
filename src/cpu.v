@@ -131,6 +131,8 @@ module cpu (
     // LoadStoreBuffer to ReorderBuffer
     wire lsb_rob_mark_as_io_load;
     wire [`ROB_TAG_RANGE] lsb_rob_io_load_tag;
+    // ReorderBuffer to LoadStoreBuffer
+    wire rob_lsb_store_or_io_load;
 
     // Global Signal
     wire rs_full_out;
@@ -394,6 +396,7 @@ module cpu (
         .rob_commit_lsb_signal_in(rob_commit_lsb_signal_out),
         .rob_commit_tag_in(rob_commit_tag_out),
 
+        .rob_lsb_store_or_io_load_in(rob_lsb_store_or_io_load),
         .rob_mark_as_io_load_out(lsb_rob_mark_as_io_load),
         .rob_io_load_tag_out(lsb_rob_io_load_tag),
 
@@ -446,6 +449,7 @@ module cpu (
 
         .lsb_mark_as_io_load_in(lsb_rob_mark_as_io_load),
         .lsb_io_load_tag_in(lsb_rob_io_load_tag),
+        .lsb_store_or_io_load_out(rob_lsb_store_or_io_load),
 
         .commit_signal_out(rob_commit_signal_out),
         .commit_rf_signal_out(rob_commit_rf_signal_out),

@@ -59,7 +59,7 @@ module Fetcher (
     wire cache_hit;
     wire [`WORD_RANGE] cache_inst;
 
-    assign cache_hit = valid[pc[`INDEX_RANGE]] && tags[pc[`INDEX_RANGE]] == pc[`TAG_RANGE];
+    assign cache_hit = valid[pc[`INDEX_RANGE]] && tags[pc[`INDEX_RANGE]] == pc[`TAG_RANGE] && cache_inst[6:0] != 7'h3 && cache_inst[14:12] != 3'h4;
     assign cache_inst = cached_insts[pc[`INDEX_RANGE]];
 `endif
 

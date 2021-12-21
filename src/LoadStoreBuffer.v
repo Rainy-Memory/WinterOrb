@@ -47,6 +47,7 @@ module LoadStoreBuffer (
     input  wire [`ROB_TAG_RANGE]    rob_commit_tag_in,
 
     // ReorderBuffer for io load
+    input  wire                     rob_lsb_store_or_io_load_in,
     output reg                      rob_mark_as_io_load_out,
     output reg  [`ROB_TAG_RANGE]    rob_io_load_tag_out,
 
@@ -88,6 +89,7 @@ module LoadStoreBuffer (
     reg [1:0] status;
     reg [`ROB_TAG_RANGE] current_tag;
     reg [`INNER_INST_RANGE] current_op;
+    reg [`WORD_RANGE] current_address;
     reg current_io_load_has_notice_rob;
 
     wire [`WORD_RANGE] lb_zext;
@@ -125,6 +127,7 @@ module LoadStoreBuffer (
             current_tag <= `NULL_TAG;
             current_op <= `NOP;
             current_io_load_has_notice_rob <= `FALSE;
+            current_address <= `ZERO_WORD;
             for (i = 0; i < `LSB_CAPACITY; i = i + 1) begin
                 load_store_flag[i] <= `FALSE;
                 commit_flag[i] <= `FALSE;
@@ -138,13 +141,87 @@ module LoadStoreBuffer (
                 load_store_goal[i] <= 3'b0;
             end
         end else if (rob_rollback_in) begin
+            // update data by snoopy on cdb (i.e., alu && rob)
+            if (alu_broadcast_signal_in) begin
+                for (i = 0; i < `LSB_CAPACITY; i = i + 1) begin
+                    if (in_queue[i]) begin
+                        if (Qj[i] == alu_dest_tag_in) begin
+                            Qj[i] <= `NULL_TAG;
+                            Vj[i] <= alu_result_in;
+                        end
+                        if (Qk[i] == alu_dest_tag_in) begin
+                            Qk[i] <= `NULL_TAG;
+                            Vk[i] <= alu_result_in;
+                        end
+                    end
+                end
+            end
+            if (rob_broadcast_signal_in) begin
+                for (i = 0; i < `LSB_CAPACITY; i = i + 1) begin
+                    if (in_queue[i]) begin
+                        if (Qj[i] == rob_dest_tag_in) begin
+                            Qj[i] <= `NULL_TAG;
+                            Vj[i] <= rob_result_in;
+                        end
+                        if (Qk[i] == rob_dest_tag_in) begin
+                            Qk[i] <= `NULL_TAG;
+                            Vk[i] <= rob_result_in;
+                        end
+                    end
+                end
+            end
             tail <= (head + unexecute_committed_cnt) % `LSB_CAPACITY;
-            // unexecute_committed_cnt <= 0;
-            if (status == LOAD) begin
+            if (rob_commit_lsb_signal_in) begin
+                // must commit head_next + unexecute_committed_cnt
+                commit_flag[(head_next + unexecute_committed_cnt) % `LSB_CAPACITY] <= `TRUE;
+            end
+            if (head != tail && status == IDLE) begin
+                if (ready[head_next] && (load_store_flag[head_next] || address[head_next][17:16] == 2'b11)) begin
+                    rob_tag[head_next] <= `NULL_TAG;
+                    commit_flag[head_next] <= `FALSE;
+                    mc_request_out <= `TRUE;
+                    mc_goal_out <= load_store_goal[head_next];
+                    mc_rw_signal_out <= load_store_flag[head_next];
+                    current_tag <= rob_tag[head_next];
+                    current_op <= op[head_next];
+                    mc_address_out <= address[head_next];
+                    current_address <= address[head_next];
+                    mc_data_out <= Vk[head_next];
+                    status <= load_store_flag[head_next] ? STORE : LOAD;
+                    head <= head_next;
+                    current_io_load_has_notice_rob <= `FALSE;
+                end else if (!load_store_flag[head_next] && Qj[head_next] == `NULL_TAG && address[head_next][17:16] == 2'b11 && !current_io_load_has_notice_rob) begin
+                    rob_mark_as_io_load_out <= `TRUE;
+                    rob_io_load_tag_out <= rob_tag[head_next];
+                    current_io_load_has_notice_rob <= `TRUE;
+                end                
+            end 
+            unexecute_committed_cnt <= (unexecute_committed_cnt + (unexe_cnt_plus ? 1 : 0) - (unexe_cnt_minus ? 1 : 0)) % `LSB_CAPACITY;
+            if (status == LOAD && current_address[17:16] != 2'b11) begin
                 status <= IDLE;
                 current_tag <= `NULL_TAG;
             end else if (status == STORE) begin
                 if (mc_ready_in) status <= IDLE;
+            end else if (status == LOAD) begin
+                // io load
+                if (mc_ready_in) begin
+                    status <= IDLE;
+                    // broadcast
+                    broadcast_signal_out <= `TRUE;
+                    result_out <= load_result;
+                    dest_tag_out <= current_tag;
+                    // inner broadcast
+                    for (i = 0; i < `LSB_CAPACITY; i = i + 1) begin
+                        if (Qj[i] == current_tag && in_queue[i]) begin
+                            Qj[i] <= `NULL_TAG;
+                            Vj[i] <= load_result;
+                        end
+                        if (Qk[i] == current_tag && in_queue[i]) begin
+                            Qk[i] <= `NULL_TAG;
+                            Vk[i] <= load_result;
+                        end
+                    end
+                end
             end
         end else begin
             if (dis_new_inst_signal_in) begin
@@ -166,6 +243,16 @@ module LoadStoreBuffer (
                     if (dec_Qk_in == rob_dest_tag_in) begin
                         Qk[tail_next] <= `NULL_TAG;
                         Vk[tail_next] <= rob_result_in;
+                    end
+                end
+                if (alu_broadcast_signal_in) begin
+                    if (dec_Qj_in == alu_dest_tag_in) begin
+                        Qj[tail_next] <= `NULL_TAG;
+                        Vj[tail_next] <= alu_result_in;
+                    end
+                    if (dec_Qk_in == alu_dest_tag_in) begin
+                        Qk[tail_next] <= `NULL_TAG;
+                        Vk[tail_next] <= alu_result_in;
                     end
                 end
                 tail <= tail_next;
@@ -216,6 +303,7 @@ module LoadStoreBuffer (
                     current_tag <= rob_tag[head_next];
                     current_op <= op[head_next];
                     mc_address_out <= address[head_next];
+                    current_address <= address[head_next];
                     mc_data_out <= Vk[head_next];
                     status <= load_store_flag[head_next] ? STORE : LOAD;
                     head <= head_next;

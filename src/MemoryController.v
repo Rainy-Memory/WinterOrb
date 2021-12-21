@@ -87,18 +87,23 @@ module MemoryController (
         end else if (rob_rollback_in) begin
             have_inst_request <= `FALSE;
             have_load_request <= `FALSE;
-            if (status != IDLE && (working_on == INSTRUCTION || (working_on == LOAD))) begin
+            if (status != IDLE && working_on != STORE) begin
                 status <= IDLE;
                 working_on <= NONE;
                 buffer <= `ZERO_WORD;
                 current <= 3'd0;
             end
-            // store request
+            // store or io load request
             if (lsb_request_in && lsb_rw_signal_in) begin
                 have_store_request <= `TRUE;
                 store_address <= lsb_address_in;
                 store_goal <= lsb_goal_in;
                 store_data <= lsb_data_in;
+            end
+            if (lsb_request_in && !lsb_rw_signal_in && lsb_address_in[17:16] == 2'b11) begin
+                have_load_request <= `TRUE;
+                load_address <= lsb_address_in;
+                load_goal <= lsb_goal_in;
             end
         end else begin
             if (fet_request_in) begin

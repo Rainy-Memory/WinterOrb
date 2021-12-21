@@ -48,13 +48,14 @@ module ReorderBuffer (
     input  wire [`ROB_TAG_RANGE]   lsb_dest_tag_in,
 
     // broadcast
-    output reg                      broadcast_signal_out,
-    output reg  [`WORD_RANGE]       result_out,
-    output reg  [`ROB_TAG_RANGE]    dest_tag_out,
+    output reg                     broadcast_signal_out,
+    output reg  [`WORD_RANGE]      result_out,
+    output reg  [`ROB_TAG_RANGE]   dest_tag_out,
 
     // LoadStoreBuffer
-    input  wire                     lsb_mark_as_io_load_in,
-    input  wire [`ROB_TAG_RANGE]    lsb_io_load_tag_in,
+    input  wire                    lsb_mark_as_io_load_in,
+    input  wire [`ROB_TAG_RANGE]   lsb_io_load_tag_in,
+    output reg                     lsb_store_or_io_load_out,
 
 
     // RegisterFile && LoadStoreBuffer
@@ -83,6 +84,7 @@ module ReorderBuffer (
     reg [`WORD_RANGE] predict_pc [`ROB_RANGE];
     reg [`WORD_RANGE] new_pc [`ROB_RANGE];
     reg is_io_load [`ROB_RANGE];
+    reg was_io_load [`ROB_RANGE];
     wire in_queue [`ROB_RANGE];
 
     reg need_to_rollback;
@@ -95,7 +97,7 @@ module ReorderBuffer (
         rob_log = $fopen("bin/rob_log.txt", "w");
         success = 0;
         total = 0;
-    end    
+    end
 `endif
 
     assign dec_Vj_ready_out = in_queue[dec_Qj_in] ? ready[dec_Qj_in] : `FALSE;
@@ -117,6 +119,7 @@ module ReorderBuffer (
         commit_fet_signal_out <= `FALSE;
         need_to_rollback <= `FALSE;
         inner_rollback <= `FALSE;
+        lsb_store_or_io_load_out <= `FALSE;
         if (rst || inner_rollback) begin
             tail <= 1;
             head <= 1;
@@ -130,6 +133,7 @@ module ReorderBuffer (
                 predict_pc[i] <= `ZERO_WORD;
                 new_pc[i] <= `ZERO_WORD;
                 is_io_load[i] <= `FALSE;
+                was_io_load[i] <= `FALSE;
             end
         end else if (need_to_rollback) begin
             // rollback:
@@ -174,6 +178,7 @@ module ReorderBuffer (
                     commit_rf_signal_out <= opcode[head_next] != `BRANCH_OPCODE && opcode[head_next] != `STORE_OPCODE;
                     // only store and io load in lsb need commit (load will always be committed after its exectuion in lsb)
                     commit_lsb_signal_out <= opcode[head_next] == `STORE_OPCODE;
+                    lsb_store_or_io_load_out <= opcode[head_next] == `STORE_OPCODE || was_io_load[head_next];
                     commit_pc_out <= pc[head_next];
                     commit_tag_out <= head_next;
                     commit_data_out <= data[head_next];
@@ -203,6 +208,7 @@ module ReorderBuffer (
                     end
                 end else if (is_io_load[head_next]) begin
                     is_io_load[head_next] <= `FALSE;
+                    was_io_load[head_next] <= `TRUE;
                     commit_lsb_signal_out <= `TRUE;
                 end
             end
