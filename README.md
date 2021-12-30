@@ -4,7 +4,7 @@
 
 WinterOrb, a toy tomasulo cpu with verilog implementation.
 
-Click [here](https://github.com/ACMClassCourses/RISCV-CPU) for mor details.
+Click [here](https://github.com/ACMClassCourses/RISCV-CPU) for more details.
 
 ![](https://img.shields.io/badge/version-1.0.0-green.svg)
 ![](https://img.shields.io/badge/ISA-rv32i-yellow.svg)
