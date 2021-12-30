@@ -33,8 +33,8 @@ module RegisterFile (
     input  wire [`REG_INDEX_RANGE] rob_commit_target_in
 );
 
-    reg [`WORD_RANGE] value [`RF_RANGE];
-    reg busy [`RF_RANGE];
+    reg [`WORD_RANGE]    value   [`RF_RANGE];
+    reg                  busy    [`RF_RANGE];
     reg [`ROB_TAG_RANGE] rob_tag [`RF_RANGE];
     
     integer i;
@@ -53,13 +53,13 @@ module RegisterFile (
     always @(posedge clk) begin
         if (rst) begin
             for (i = 0; i < `RF_CAPACITY; i = i + 1) begin
-                value[i] <= `ZERO_WORD;
-                busy[i] <= `FALSE;
+                value[i]   <= `ZERO_WORD;
+                busy[i]    <= `FALSE;
                 rob_tag[i] <= `NULL_TAG;
             end
         end else if (rob_rollback_in) begin
             for (i = 0; i < `RF_CAPACITY; i = i + 1) begin
-                busy[i] <= `FALSE;
+                busy[i]    <= `FALSE;
                 rob_tag[i] <= `NULL_TAG;
             end
         end else begin
@@ -67,10 +67,10 @@ module RegisterFile (
                 if (rob_commit_rf_signal_in && busy[rob_commit_target_in]) begin
                     // only wb the last inst that occupy this register
                     if (rob_tag[rob_commit_target_in] == rob_commit_tag_in) begin
-                        busy[rob_commit_target_in] <= `FALSE;
+                        busy[rob_commit_target_in]    <= `FALSE;
                         rob_tag[rob_commit_target_in] <= `NULL_TAG; 
                     end
-                    value[rob_commit_target_in] <= rob_commit_data_in;
+                    value[rob_commit_target_in]       <= rob_commit_data_in;
                 end
 `ifdef PRINT_RF_STATUS
                 $fdisplay(rf_log, "cnt: %d", cnt);
@@ -84,7 +84,7 @@ module RegisterFile (
             if (dec_occupy_rd_in) begin
                 // reg 0 cannot be occupied
                 if (dec_rd_in != 0) begin
-                    busy[dec_rd_in] <= `TRUE;
+                    busy[dec_rd_in]    <= `TRUE;
                     rob_tag[dec_rd_in] <= dec_next_tag_in; // straightly cover original tag
                 end
             end

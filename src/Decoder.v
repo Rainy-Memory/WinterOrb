@@ -69,11 +69,9 @@ module Decoder (
     assign immU = {fet_inst_in[31:12], 12'b0};
     assign immJ = {{12{fet_inst_in[31]}}, fet_inst_in[19:12], fet_inst_in[20], fet_inst_in[30:21], 1'b0};
 
-    assign next_tag_out = rob_next_tag_in;
-
+    assign next_tag_out  = rob_next_tag_in;
     assign dis_ready_out = fet_issue_in;
-
-    assign pc_out = fet_pc_in;
+    assign pc_out        = fet_pc_in;
 
     assign rf_rs1_out = fet_inst_in[19:15];
     assign rf_rs2_out = fet_inst_in[24:20];
@@ -102,22 +100,22 @@ module Decoder (
             case (fet_inst_in[6:0])
                 `LUI_OPCODE: begin
                     imm_out = immU;
-                    op_out = `LUI;
+                    op_out  = `LUI;
                     rs_have_source_register_out = 2'b00;
                 end
                 `AUIPC_OPCODE: begin
                     imm_out = immU;
-                    op_out = `AUIPC;
+                    op_out  = `AUIPC;
                     rs_have_source_register_out = 2'b00;
                 end
                 `JAL_OPCODE: begin
                     imm_out = immJ;
-                    op_out = `JAL;
+                    op_out  = `JAL;
                     rs_have_source_register_out = 2'b00;
                 end
                 `JALR_OPCODE: begin
                     imm_out = immI;
-                    op_out = `JALR;
+                    op_out  = `JALR;
                     rs_have_source_register_out = 2'b01;
                 end
                 `BRANCH_OPCODE: begin

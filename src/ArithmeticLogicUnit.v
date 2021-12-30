@@ -29,44 +29,44 @@ module ArithmeticLogicUnit (
     wire [`WORD_RANGE] rs_shamt_in;
     assign rs_shamt_in = {27'b0, rs_imm_in[4:0]};
 
-    assign dest_tag_out = rs_dest_in;
+    assign dest_tag_out         = rs_dest_in;
     assign broadcast_signal_out = rs_calculate_signal_in;
 
     always @(*) begin
         rob_new_pc_out = rs_pc_in;
         case (rs_op_in)
-            `LUI: result_out = rs_imm_in;
+            `LUI: result_out   = rs_imm_in;
             `AUIPC: begin
-                result_out = rs_pc_in + rs_imm_in;
+                result_out     = rs_pc_in + rs_imm_in;
                 rob_new_pc_out = rs_pc_in + rs_imm_in;
             end
-            `JAL: result_out = rs_pc_in + 4;
+            `JAL: result_out   = rs_pc_in + 4;
             `JALR: begin
-                result_out = rs_pc_in + 4;
+                result_out     = rs_pc_in + 4;
                 rob_new_pc_out = (rs_rs1val_in + rs_imm_in) & -1;
             end
             `BEQ: begin
-                result_out = rs_rs1val_in == rs_rs2val_in;
+                result_out     = rs_rs1val_in == rs_rs2val_in;
                 rob_new_pc_out = rs_rs1val_in == rs_rs2val_in ? rs_pc_in + rs_imm_in : rs_pc_in + 4;
             end
             `BNE: begin
-                result_out = rs_rs1val_in != rs_rs2val_in;
+                result_out     = rs_rs1val_in != rs_rs2val_in;
                 rob_new_pc_out = rs_rs1val_in != rs_rs2val_in ? rs_pc_in + rs_imm_in : rs_pc_in + 4;
             end
             `BLT: begin
-                result_out = $signed(rs_rs1val_in) < $signed(rs_rs2val_in);
-                rob_new_pc_out = $signed(rs_rs1val_in) < $signed(rs_rs2val_in) ? rs_pc_in + rs_imm_in : rs_pc_in + 4;
+                result_out     = $signed(rs_rs1val_in) <  $signed(rs_rs2val_in);
+                rob_new_pc_out = $signed(rs_rs1val_in) <  $signed(rs_rs2val_in) ? rs_pc_in + rs_imm_in : rs_pc_in + 4;
             end
             `BGE: begin
-                result_out = $signed(rs_rs1val_in) >= $signed(rs_rs2val_in);
+                result_out     = $signed(rs_rs1val_in) >= $signed(rs_rs2val_in);
                 rob_new_pc_out = $signed(rs_rs1val_in) >= $signed(rs_rs2val_in) ? rs_pc_in + rs_imm_in : rs_pc_in + 4;
             end
             `BLTU: begin
-                result_out = rs_rs1val_in < rs_rs2val_in;
+                result_out     = rs_rs1val_in < rs_rs2val_in;
                 rob_new_pc_out = rs_rs1val_in < rs_rs2val_in ? rs_pc_in + rs_imm_in : rs_pc_in + 4;
             end
             `BGEU: begin
-                result_out = rs_rs1val_in >= rs_rs2val_in;
+                result_out     = rs_rs1val_in >= rs_rs2val_in;
                 rob_new_pc_out = rs_rs1val_in >= rs_rs2val_in ? rs_pc_in + rs_imm_in : rs_pc_in + 4;
             end
             `ADDI:  result_out = rs_rs1val_in + rs_imm_in;

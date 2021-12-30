@@ -73,22 +73,22 @@ module ReorderBuffer (
     // index of head doesn't store any data, index of tail store data
     // head == tail -> empty
     // head == tail.next -> full
-    reg [`ROB_TAG_RANGE] head, tail;
-    wire [`ROB_TAG_RANGE] head_next, tail_next;
-    reg ready [`ROB_RANGE];
-    reg [6:0] opcode [`ROB_RANGE];
-    reg [`WORD_RANGE] data [`ROB_RANGE];
-    reg [`REG_INDEX_RANGE] dest [`ROB_RANGE];
-    reg [`WORD_RANGE] pc [`ROB_RANGE];
-    reg [`WORD_RANGE] imm [`ROB_RANGE];
-    reg [`WORD_RANGE] predict_pc [`ROB_RANGE];
-    reg [`WORD_RANGE] new_pc [`ROB_RANGE];
-    reg is_io_load [`ROB_RANGE];
-    reg was_io_load [`ROB_RANGE];
-    wire in_queue [`ROB_RANGE];
+    reg  [`ROB_TAG_RANGE]  head, tail;
+    wire [`ROB_TAG_RANGE]  head_next, tail_next;
+    reg                    ready       [`ROB_RANGE];
+    reg [6:0]              opcode      [`ROB_RANGE];
+    reg [`WORD_RANGE]      data        [`ROB_RANGE];
+    reg [`REG_INDEX_RANGE] dest        [`ROB_RANGE];
+    reg [`WORD_RANGE]      pc          [`ROB_RANGE];
+    reg [`WORD_RANGE]      imm         [`ROB_RANGE];
+    reg [`WORD_RANGE]      predict_pc  [`ROB_RANGE];
+    reg [`WORD_RANGE]      new_pc      [`ROB_RANGE];
+    reg                    is_io_load  [`ROB_RANGE];
+    reg                    was_io_load [`ROB_RANGE];
+    wire                   in_queue    [`ROB_RANGE];
 
-    reg need_to_rollback;
-    reg inner_rollback;
+    reg               need_to_rollback;
+    reg               inner_rollback;
     reg [`WORD_RANGE] rollback_pc;
 
 `ifdef PRINT_PREDICTION_RATE
@@ -96,7 +96,7 @@ module ReorderBuffer (
     initial begin
         rob_log = $fopen("bin/rob_log.txt", "w");
         success = 0;
-        total = 0;
+        total   = 0;
     end
 `endif
 
@@ -105,34 +105,34 @@ module ReorderBuffer (
     assign dec_Vj_out       = data[dec_Qj_in];
     assign dec_Vk_out       = data[dec_Qk_in];
 
-    assign head_next = head == `ROB_CAPACITY - 1 ? 1 : head + 1;
-    assign tail_next = tail == `ROB_CAPACITY - 1 ? 1 : tail + 1;
-    assign full_out  = head == tail_next;
+    assign head_next        = head == `ROB_CAPACITY - 1 ? 1 : head + 1;
+    assign tail_next        = tail == `ROB_CAPACITY - 1 ? 1 : tail + 1;
+    assign full_out         = head == tail_next;
     assign dec_next_tag_out = (head != tail_next) ? tail_next : `NULL_TAG;
 
     always @(posedge clk) begin
-        rollback_out <= `FALSE;
-        broadcast_signal_out <= `FALSE;
-        commit_signal_out <= `FALSE;
-        commit_rf_signal_out <= `FALSE;
-        commit_lsb_signal_out <= `FALSE;
-        commit_fet_signal_out <= `FALSE;
-        need_to_rollback <= `FALSE;
-        inner_rollback <= `FALSE;
+        rollback_out             <= `FALSE;
+        broadcast_signal_out     <= `FALSE;
+        commit_signal_out        <= `FALSE;
+        commit_rf_signal_out     <= `FALSE;
+        commit_lsb_signal_out    <= `FALSE;
+        commit_fet_signal_out    <= `FALSE;
+        need_to_rollback         <= `FALSE;
+        inner_rollback           <= `FALSE;
         lsb_store_or_io_load_out <= `FALSE;
         if (rst || inner_rollback) begin
             tail <= 1;
             head <= 1;
             for (i = 0; i < `ROB_CAPACITY; i = i + 1) begin
-                ready[i] <= `FALSE;
-                opcode[i] <= 7'b0;
-                data[i] <= `ZERO_WORD;
-                dest[i] <= `ZERO_REG_INDEX;
-                pc[i] <= `ZERO_WORD;
-                imm[i] <= `ZERO_WORD;
-                predict_pc[i] <= `ZERO_WORD;
-                new_pc[i] <= `ZERO_WORD;
-                is_io_load[i] <= `FALSE;
+                ready[i]       <= `FALSE;
+                opcode[i]      <= 7'b0;
+                data[i]        <= `ZERO_WORD;
+                dest[i]        <= `ZERO_REG_INDEX;
+                pc[i]          <= `ZERO_WORD;
+                imm[i]         <= `ZERO_WORD;
+                predict_pc[i]  <= `ZERO_WORD;
+                new_pc[i]      <= `ZERO_WORD;
+                is_io_load[i]  <= `FALSE;
                 was_io_load[i] <= `FALSE;
             end
         end else if (need_to_rollback) begin
@@ -141,30 +141,30 @@ module ReorderBuffer (
             // (2) execute all committed instruction in lsb
             // (3) keep register value in RegisterFile
             // (4) rst all other modules
-            rollback_out <= `TRUE;
+            inner_rollback      <= `TRUE;
+            rollback_out        <= `TRUE;
             fet_rollback_pc_out <= rollback_pc;
-            inner_rollback <= `TRUE;
         end else begin
             if (dec_issue_in) begin
                 // add new entry
-                ready[tail_next] <= `FALSE;
-                opcode[tail_next] <= dec_inst_in[6:0];
-                data[tail_next] <= `ZERO_WORD;
-                dest[tail_next] <= dec_rd_in;
-                pc[tail_next] <= dec_pc_in;
-                imm[tail_next] <= dec_imm_in;
+                ready[tail_next]      <= `FALSE;
+                opcode[tail_next]     <= dec_inst_in[6:0];
+                data[tail_next]       <= `ZERO_WORD;
+                dest[tail_next]       <= dec_rd_in;
+                pc[tail_next]         <= dec_pc_in;
+                imm[tail_next]        <= dec_imm_in;
                 predict_pc[tail_next] <= dec_predict_pc_in;
-                tail <= tail_next;
+                tail                  <= tail_next;
             end
             // update data by snoopy on cdb (i.e., alu && lsb)
             if (alu_broadcast_signal_in && in_queue[alu_dest_tag_in]) begin
-                data[alu_dest_tag_in] <= alu_result_in;
-                ready[alu_dest_tag_in] <= `TRUE;
+                data[alu_dest_tag_in]   <= alu_result_in;
+                ready[alu_dest_tag_in]  <= `TRUE;
                 new_pc[alu_dest_tag_in] <= alu_new_pc_in;
             end
             if (lsb_broadcast_signal_in && in_queue[lsb_dest_tag_in]) begin
-                data[lsb_dest_tag_in] <= lsb_result_in;
-                ready[lsb_dest_tag_in] <= `TRUE;
+                data[lsb_dest_tag_in]   <= lsb_result_in;
+                ready[lsb_dest_tag_in]  <= `TRUE;
             end
             if (lsb_mark_as_io_load_in && in_queue[lsb_io_load_tag_in]) begin
                 is_io_load[lsb_io_load_tag_in] <= `TRUE;
@@ -173,32 +173,32 @@ module ReorderBuffer (
             if (head != tail) begin
                 // store will automatically committed when it reach rob head
                 if (ready[head_next] || opcode[head_next] == `STORE_OPCODE) begin
-                    ready[head_next] <= `FALSE;
-                    commit_signal_out <= `TRUE;
-                    commit_rf_signal_out <= opcode[head_next] != `BRANCH_OPCODE && opcode[head_next] != `STORE_OPCODE;
+                    ready[head_next]         <= `FALSE;
+                    commit_signal_out        <= `TRUE;
+                    commit_rf_signal_out     <= opcode[head_next] != `BRANCH_OPCODE && opcode[head_next] != `STORE_OPCODE;
                     // only store and io load in lsb need commit (load will always be committed after its exectuion in lsb)
-                    commit_lsb_signal_out <= opcode[head_next] == `STORE_OPCODE;
+                    commit_lsb_signal_out    <= opcode[head_next] == `STORE_OPCODE;
                     lsb_store_or_io_load_out <= opcode[head_next] == `STORE_OPCODE || was_io_load[head_next];
-                    commit_pc_out <= pc[head_next];
-                    commit_tag_out <= head_next;
-                    commit_data_out <= data[head_next];
-                    commit_target_out <= dest[head_next];
+                    commit_pc_out            <= pc[head_next];
+                    commit_tag_out           <= head_next;
+                    commit_data_out          <= data[head_next];
+                    commit_target_out        <= dest[head_next];
                     head <= head_next;
                     // broadcast
-                    broadcast_signal_out <= `TRUE;
-                    result_out <= data[head_next];
-                    dest_tag_out <= head_next;
+                    broadcast_signal_out     <= `TRUE;
+                    result_out               <= data[head_next];
+                    dest_tag_out             <= head_next;
                     // rollback
                     if (opcode[head_next] == `JALR_OPCODE ||
                         opcode[head_next] == `BRANCH_OPCODE) begin
                         if (new_pc[head_next] != predict_pc[head_next]) begin
                             need_to_rollback <= `TRUE;
-                            rollback_pc <= new_pc[head_next];
+                            rollback_pc      <= new_pc[head_next];
                         end
                         // for branch predict
                         if (opcode[head_next] == `BRANCH_OPCODE) begin
                             commit_fet_signal_out <= `TRUE;
-                            fet_branch_taken <= new_pc[head_next] == pc[head_next] + imm[head_next];
+                            fet_branch_taken      <= new_pc[head_next] == pc[head_next] + imm[head_next];
 `ifdef PRINT_PREDICTION_RATE
                             if (new_pc[head_next] == predict_pc[head_next]) success = success + 1;
                             total = total + 1;
@@ -207,9 +207,9 @@ module ReorderBuffer (
                         end
                     end
                 end else if (is_io_load[head_next]) begin
-                    is_io_load[head_next] <= `FALSE;
+                    is_io_load[head_next]  <= `FALSE;
                     was_io_load[head_next] <= `TRUE;
-                    commit_lsb_signal_out <= `TRUE;
+                    commit_lsb_signal_out  <= `TRUE;
                 end
             end
         end

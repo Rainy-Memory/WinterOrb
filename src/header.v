@@ -46,15 +46,15 @@
 `define SHAMT_RANGE                         4:0
 
 // branch prediciton
-`define BP_CAPACITY       8'd128
+`define BP_CAPACITY                      8'd128
 `define BP_RANGE          `BP_CAPACITY - 1:0
-`define BP_HASH_RANGE     8:2
+`define BP_HASH_RANGE                    8:2
 
 // i-cache
-`define ICACHE_CAPACITY   8'd128
+`define ICACHE_CAPACITY                      8'd128
 `define ICACHE_RANGE      `ICACHE_CAPACITY - 1:0
-`define TAG_RANGE         31:9
-`define INDEX_RANGE       8:2
+`define TAG_RANGE                           31:9
+`define INDEX_RANGE                          8:2
 
 // opcode
 `define LUI_OPCODE         7'b0110111

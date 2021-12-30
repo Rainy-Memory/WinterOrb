@@ -53,10 +53,10 @@ module Fetcher (
 
 `ifdef USE_ICACHE
     // direct-mapped i-cache
-    reg [`TAG_RANGE] tags [`ICACHE_RANGE];
-    reg [`WORD_RANGE] cached_insts [`ICACHE_RANGE];
-    reg valid [`ICACHE_RANGE];
-    wire cache_hit;
+    reg [`TAG_RANGE]   tags         [`ICACHE_RANGE];
+    reg [`WORD_RANGE]  cached_insts [`ICACHE_RANGE];
+    reg                valid        [`ICACHE_RANGE];
+    wire               cache_hit;
     wire [`WORD_RANGE] cache_inst;
 
     assign cache_hit = valid[pc[`INDEX_RANGE]] && tags[pc[`INDEX_RANGE]] == pc[`TAG_RANGE] && cache_inst[6:0] != 7'h3 && cache_inst[14:12] != 3'h4;
@@ -64,46 +64,46 @@ module Fetcher (
 `endif
 
     always @(posedge clk) begin
-        dec_issue_out <= `FALSE;
+        dec_issue_out  <= `FALSE;
         mc_request_out <= `FALSE;
         if (rst) begin
-            pc <= `ZERO_WORD;
+            pc                <= `ZERO_WORD;
             inst_to_be_issued <= `ZERO_WORD;
-            immJ <= `ZERO_WORD;
-            immB <= `ZERO_WORD;
+            immJ              <= `ZERO_WORD;
+            immB              <= `ZERO_WORD;
             status <= IDLE;
             for (i = 0; i < `BP_CAPACITY; i = i + 1) begin
                 branch_history_table[i] <= 2'b10;
             end
 `ifdef USE_ICACHE
             for (i = 0; i < `ICACHE_CAPACITY; i = i + 1) begin
-                tags[i] <= 0;
+                tags[i]         <= 0;
                 cached_insts[i] <= `ZERO_WORD;
-                valid[i] <= `FALSE;
+                valid[i]        <= `FALSE;
             end
 `endif
         end else if (rob_rollback_in) begin
-            pc <= rob_rollback_pc_in;
+            pc                <= rob_rollback_pc_in;
             inst_to_be_issued <= `ZERO_WORD;
-            status <= IDLE;
+            status            <= IDLE;
         end else begin
             if (rob_commit_signal_in) begin
                 case (branch_history_table[rob_commit_pc_in[`BP_HASH_RANGE]])
-                    2'b00: branch_history_table[rob_commit_pc_in[`BP_HASH_RANGE]] <= rob_branch_taken_in ? branch_history_table[rob_commit_pc_in[`BP_HASH_RANGE]] + 1 : branch_history_table[rob_commit_pc_in[`BP_HASH_RANGE]];
-                    2'b11: branch_history_table[rob_commit_pc_in[`BP_HASH_RANGE]] <= rob_branch_taken_in ? branch_history_table[rob_commit_pc_in[`BP_HASH_RANGE]] : branch_history_table[rob_commit_pc_in[`BP_HASH_RANGE]] - 1;
+                    2'b00:   branch_history_table[rob_commit_pc_in[`BP_HASH_RANGE]] <= rob_branch_taken_in ? branch_history_table[rob_commit_pc_in[`BP_HASH_RANGE]] + 1 : branch_history_table[rob_commit_pc_in[`BP_HASH_RANGE]];
+                    2'b11:   branch_history_table[rob_commit_pc_in[`BP_HASH_RANGE]] <= rob_branch_taken_in ? branch_history_table[rob_commit_pc_in[`BP_HASH_RANGE]]     : branch_history_table[rob_commit_pc_in[`BP_HASH_RANGE]] - 1;
                     default: branch_history_table[rob_commit_pc_in[`BP_HASH_RANGE]] <= rob_branch_taken_in ? branch_history_table[rob_commit_pc_in[`BP_HASH_RANGE]] + 1 : branch_history_table[rob_commit_pc_in[`BP_HASH_RANGE]] - 1;
                 endcase
             end
             if (status == IDLE) begin
 `ifdef USE_ICACHE
                 if (cache_hit) begin
-                    status <= ISSUING;
+                    status            <= ISSUING;
                     inst_to_be_issued <= cache_inst;
-                    immJ <= {{12{cache_inst[31]}}, cache_inst[19:12], cache_inst[20], cache_inst[30:21], 1'b0};
-                    immB <= {{20{cache_inst[31]}}, cache_inst[7], cache_inst[30:25], cache_inst[11:8], 1'b0};
+                    immJ              <= {{12{cache_inst[31]}}, cache_inst[19:12], cache_inst[20], cache_inst[30:21], 1'b0};
+                    immB              <= {{20{cache_inst[31]}}, cache_inst[7], cache_inst[30:25], cache_inst[11:8], 1'b0};
                 end else begin
 `endif
-                    status <= WAITING;
+                    status         <= WAITING;
                     mc_address_out <= pc;
                     mc_request_out <= `TRUE;
 `ifdef USE_ICACHE
@@ -111,31 +111,31 @@ module Fetcher (
 `endif
             end else if (status == WAITING) begin
                 if (mc_ready_in) begin
-                    status <= ISSUING;
+                    status            <= ISSUING;
                     inst_to_be_issued <= mc_instruction_in;
-                    immJ <= {{12{mc_instruction_in[31]}}, mc_instruction_in[19:12], mc_instruction_in[20], mc_instruction_in[30:21], 1'b0};
-                    immB <= {{20{mc_instruction_in[31]}}, mc_instruction_in[7], mc_instruction_in[30:25], mc_instruction_in[11:8], 1'b0};
+                    immJ              <= {{12{mc_instruction_in[31]}}, mc_instruction_in[19:12], mc_instruction_in[20], mc_instruction_in[30:21], 1'b0};
+                    immB              <= {{20{mc_instruction_in[31]}}, mc_instruction_in[7], mc_instruction_in[30:25], mc_instruction_in[11:8], 1'b0};
 `ifdef USE_ICACHE
-                    valid[pc[`INDEX_RANGE]] <= `TRUE;
-                    tags[pc[`INDEX_RANGE]] <= pc[`TAG_RANGE];
+                    valid[pc[`INDEX_RANGE]]        <= `TRUE;
+                    tags[pc[`INDEX_RANGE]]         <= pc[`TAG_RANGE];
                     cached_insts[pc[`INDEX_RANGE]] <= mc_instruction_in;
 `endif
                 end
             end else begin // status == ISSUING
                 if (!rs_full_in && !lsb_full_in && !rob_full_in) begin
-                    status <= IDLE;
+                    status        <= IDLE;
                     dec_issue_out <= `TRUE;
-                    dec_inst_out <= inst_to_be_issued;
-                    dec_pc_out <= pc;
+                    dec_inst_out  <= inst_to_be_issued;
+                    dec_pc_out    <= pc;
                     // directly jump in fetcher
                     if (inst_to_be_issued[6:0] == `JAL_OPCODE) begin
-                        pc <= pc + immJ;
+                        pc                 <= pc + immJ;
                         dec_predict_pc_out <= pc + immJ;
                     end else if (inst_to_be_issued[6:0] == `BRANCH_OPCODE && branch_history_table[pc[`BP_HASH_RANGE]][1]) begin
-                        pc <= pc + immB;
+                        pc                 <= pc + immB;
                         dec_predict_pc_out <= pc + immB;
                     end else begin // JALR always need rollback
-                        pc <= pc + 4;
+                        pc                 <= pc + 4;
                         dec_predict_pc_out <= pc + 4;
                     end
                 end

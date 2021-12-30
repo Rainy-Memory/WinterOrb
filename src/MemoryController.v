@@ -47,9 +47,9 @@ module MemoryController (
     localparam NONE = 2'b00, INSTRUCTION = 2'b01, LOAD = 2'b10, STORE = 2'b11;
     reg [1:0] working_on;
 
-    reg waiting; // read from ram takes 2 cycles
-    reg [2:0] goal;
-    reg [2:0] current;
+    reg               waiting; // read from ram takes 2 cycles
+    reg [2:0]         goal;
+    reg [2:0]         current;
     reg [`WORD_RANGE] current_address;
     reg [`WORD_RANGE] current_data;
     reg [`WORD_RANGE] buffer;
@@ -59,153 +59,153 @@ module MemoryController (
 
     reg have_load_request;
     reg [`WORD_RANGE] load_address;
-    reg [2:0] load_goal; // LB: 1, LHW: 2, LW: 4
+    reg [2:0]         load_goal; // LB: 1, LHW: 2, LW: 4
 
-    reg have_store_request;
+    reg               have_store_request;
     reg [`WORD_RANGE] store_address;
-    reg [2:0] store_goal; // LB: 1, LHW: 2, LW: 4
+    reg [2:0]         store_goal; // LB: 1, LHW: 2, LW: 4
     reg [`WORD_RANGE] store_data;
 
-    wire could_issue_store;
+    wire   could_issue_store;
     assign could_issue_store = store_address[17:16] == 2'b11 ? !io_buffer_full : `TRUE;
 
     always @(posedge clk) begin
         fet_ready_out <= `FALSE;
         lsb_ready_out <= `FALSE;
         if (rst) begin
-            status <= IDLE;
-            working_on <= NONE;
-            waiting <= `FALSE;
-            goal <= 3'd0;
-            current <= 3'd0;
-            current_address <= `ZERO_WORD;
-            current_data <= `ZERO_WORD;
-            buffer <= `ZERO_WORD;
-            have_inst_request <= `FALSE;
-            have_load_request <= `FALSE;
+            status             <= IDLE;
+            working_on         <= NONE;
+            waiting            <= `FALSE;
+            goal               <= 3'd0;
+            current            <= 3'd0;
+            current_address    <= `ZERO_WORD;
+            current_data       <= `ZERO_WORD;
+            buffer             <= `ZERO_WORD;
+            have_inst_request  <= `FALSE;
+            have_load_request  <= `FALSE;
             have_store_request <= `FALSE;
         end else if (rob_rollback_in) begin
             have_inst_request <= `FALSE;
             have_load_request <= `FALSE;
             if (status != IDLE && working_on != STORE) begin
-                status <= IDLE;
+                status     <= IDLE;
                 working_on <= NONE;
-                buffer <= `ZERO_WORD;
-                current <= 3'd0;
+                buffer     <= `ZERO_WORD;
+                current    <= 3'd0;
             end
             // store or io load request
             if (lsb_request_in && lsb_rw_signal_in) begin
                 have_store_request <= `TRUE;
-                store_address <= lsb_address_in;
-                store_goal <= lsb_goal_in;
-                store_data <= lsb_data_in;
+                store_address      <= lsb_address_in;
+                store_goal         <= lsb_goal_in;
+                store_data         <= lsb_data_in;
             end
             if (lsb_request_in && !lsb_rw_signal_in && lsb_address_in[17:16] == 2'b11) begin
-                have_load_request <= `TRUE;
-                load_address <= lsb_address_in;
-                load_goal <= lsb_goal_in;
+                have_load_request  <= `TRUE;
+                load_address       <= lsb_address_in;
+                load_goal          <= lsb_goal_in;
             end
         end else begin
             if (fet_request_in) begin
-                have_inst_request <= `TRUE;
-                inst_address <= fet_address_in;
+                have_inst_request  <= `TRUE;
+                inst_address       <= fet_address_in;
             end
             if (lsb_request_in) begin
                 // LOAD -> 0, STORE -> 1
                 if (lsb_rw_signal_in) begin // store
                     have_store_request <= `TRUE;
-                    store_address <= lsb_address_in;
-                    store_goal <= lsb_goal_in;
-                    store_data <= lsb_data_in;
+                    store_address      <= lsb_address_in;
+                    store_goal         <= lsb_goal_in;
+                    store_data         <= lsb_data_in;
                 end else begin
-                    have_load_request <= `TRUE;
-                    load_address <= lsb_address_in;
-                    load_goal <= lsb_goal_in;
+                    have_load_request  <= `TRUE;
+                    load_address       <= lsb_address_in;
+                    load_goal          <= lsb_goal_in;
                 end
             end
             if (status == IDLE) begin
                 if (have_store_request && could_issue_store) begin
                     have_store_request <= `FALSE;
-                    status <= BUSY;
-                    working_on <= STORE;
-                    waiting <= `TRUE;
-                    goal <= store_goal;
-                    current_address <= store_address;
-                    current_data <= store_data;
-                    ram_rw_signal_out <= `WRITE;
-                    ram_address_out <= store_address;
-                    ram_data_out <= store_data[current * `RAM_DATA_LEN +: `RAM_DATA_LEN];
-                    current <= current + 1;
+                    status             <= BUSY;
+                    working_on         <= STORE;
+                    waiting            <= `TRUE;
+                    goal               <= store_goal;
+                    current_address    <= store_address;
+                    current_data       <= store_data;
+                    ram_rw_signal_out  <= `WRITE;
+                    ram_address_out    <= store_address;
+                    ram_data_out       <= store_data[current * `RAM_DATA_LEN +: `RAM_DATA_LEN];
+                    current            <= current + 1;
                 end else if (have_load_request) begin
-                    have_load_request <= `FALSE;
-                    status <= BUSY;
-                    working_on <= LOAD;
-                    waiting <= `TRUE;
-                    goal <= load_goal;
-                    current_address <= load_address;
-                    ram_rw_signal_out <= `READ;
-                    ram_address_out <= load_address;
+                    have_load_request  <= `FALSE;
+                    status             <= BUSY;
+                    working_on         <= LOAD;
+                    waiting            <= `TRUE;
+                    goal               <= load_goal;
+                    current_address    <= load_address;
+                    ram_rw_signal_out  <= `READ;
+                    ram_address_out    <= load_address;
                 end else if (have_inst_request) begin
-                    have_inst_request <= `FALSE;
-                    status <= BUSY;
-                    working_on <= INSTRUCTION;
-                    waiting <= `TRUE;
-                    goal <= 3'd4; // fetcher read one instruction (4 byte) at once
-                    current_address <= inst_address;
-                    ram_rw_signal_out <= `READ;
-                    ram_address_out <= inst_address;
+                    have_inst_request  <= `FALSE;
+                    status             <= BUSY;
+                    working_on         <= INSTRUCTION;
+                    waiting            <= `TRUE;
+                    goal               <= 3'd4; // fetcher read one instruction (4 byte) at once
+                    current_address    <= inst_address;
+                    ram_rw_signal_out  <= `READ;
+                    ram_address_out    <= inst_address;
                 end
             end else if (status == BUSY) begin
                 if (working_on == STORE) begin
                     if (waiting) begin 
-                        waiting <= `FALSE;
-                        ram_address_out <= 0;
-                        ram_rw_signal_out <= `READ;
+                        waiting               <= `FALSE;
+                        ram_address_out       <= 0;
+                        ram_rw_signal_out     <= `READ;
                     end else begin
                         if (current == goal) begin
-                            status <= FINISH;
-                            current <= 3'd0;
+                            status            <= FINISH;
+                            current           <= 3'd0;
                         end else begin
-                            waiting <= `TRUE;
+                            waiting           <= `TRUE;
                             ram_rw_signal_out <= `WRITE;
-                            ram_address_out <= current_address + current;
-                            ram_data_out <= current_data[current * `RAM_DATA_LEN +: `RAM_DATA_LEN];
-                            current <= current + 1;
+                            ram_address_out   <= current_address + current;
+                            ram_data_out      <= current_data[current * `RAM_DATA_LEN +: `RAM_DATA_LEN];
+                            current           <= current + 1;
                         end
                     end
                 end else begin // working_on == INSTRUCTION || LOAD
                     if (waiting) begin 
-                        waiting <= `FALSE;
-                        ram_address_out <= 0;
+                        waiting           <= `FALSE;
+                        ram_address_out   <= 0;
                         ram_rw_signal_out <= `READ;
                     end else begin
                         buffer[current * `RAM_DATA_LEN +: `RAM_DATA_LEN] <= ram_data_in;
-                        current <= current + 1;
+                        current                                          <= current + 1;
                         if (current == goal - 1) begin
-                            status <= FINISH;
+                            status  <= FINISH;
                             current <= 3'd0;
                         end else begin
-                            waiting <= `TRUE;
+                            waiting           <= `TRUE;
                             ram_rw_signal_out <= `READ;
-                            ram_address_out <= current_address + (current + 1);
+                            ram_address_out   <= current_address + (current + 1);
                         end
                     end
                 end
             end else begin // status == FINISH
-                ram_address_out <= 0;
-                ram_rw_signal_out <= `READ;
+                ram_address_out         <= 0;
+                ram_rw_signal_out       <= `READ;
                 if (working_on == STORE) begin
-                    lsb_ready_out <= `TRUE;
+                    lsb_ready_out       <= `TRUE;
                 end else if (working_on == LOAD) begin
-                    lsb_ready_out <= `TRUE;
-                    lsb_data_out <= buffer;
+                    lsb_ready_out       <= `TRUE;
+                    lsb_data_out        <= buffer;
                 end else begin
-                    fet_ready_out <= `TRUE;
+                    fet_ready_out       <= `TRUE;
                     fet_instruction_out <= buffer;
                 end
-                status <= IDLE;
-                working_on <= NONE;
-                buffer <= `ZERO_WORD;
+                status                  <= IDLE;
+                working_on              <= NONE;
+                buffer                  <= `ZERO_WORD;
             end
         end
     end

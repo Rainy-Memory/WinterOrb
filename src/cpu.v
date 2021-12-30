@@ -49,47 +49,47 @@ module cpu (
     // and input interfaces at the top of output interfaces
 
     // MemoryController to Fetcher
-    wire               mc_fet_ready;
-    wire [`WORD_RANGE] mc_fet_instruction;
+    wire                     mc_fet_ready;
+    wire [`WORD_RANGE]       mc_fet_instruction;
     // Fetcher to MemoryController
-    wire               fet_mc_request;
-    wire [`WORD_RANGE] fet_mc_address;
+    wire                     fet_mc_request;
+    wire [`WORD_RANGE]       fet_mc_address;
 
     // MemoryController to LoadStoreBuffer
-    wire               mc_lsb_ready;
-    wire [`WORD_RANGE] mc_lsb_data;
+    wire                     mc_lsb_ready;
+    wire [`WORD_RANGE]       mc_lsb_data;
     // LoadStoreBuffer to MemoryController
-    wire               lsb_mc_request;
-    wire               lsb_mc_rw_signal;
-    wire [`WORD_RANGE] lsb_mc_address;
-    wire [2:0]         lsb_mc_goal; // LB: 1, LHW: 2, LW: 4
-    wire [`WORD_RANGE] lsb_mc_data;
+    wire                     lsb_mc_request;
+    wire                     lsb_mc_rw_signal;
+    wire [`WORD_RANGE]       lsb_mc_address;
+    wire [2:0]               lsb_mc_goal; // LB: 1, LHW: 2, LW: 4
+    wire [`WORD_RANGE]       lsb_mc_data;
 
     // Fetcher to Decoder
-    wire               fet_dec_issue;
-    wire [`WORD_RANGE] fet_dec_inst;
-    wire [`WORD_RANGE] fet_dec_pc;
-    wire [`WORD_RANGE] fet_dec_predict_pc;
+    wire                     fet_dec_issue;
+    wire [`WORD_RANGE]       fet_dec_inst;
+    wire [`WORD_RANGE]       fet_dec_pc;
+    wire [`WORD_RANGE]       fet_dec_predict_pc;
 
     // Deocder to Dispatcher
-    wire       dec_dis_ready;
-    wire [1:0] dec_dis_to_lsb_signal;
-    wire [2:0] dec_lsb_goal;
+    wire                     dec_dis_ready;
+    wire [1:0]               dec_dis_to_lsb_signal;
+    wire [2:0]               dec_lsb_goal;
 
     // Decoder to ReservationStation
-    wire [1:0] dec_rs_have_source_register;
+    wire [1:0]               dec_rs_have_source_register;
 
     // Decoder to RegisterFile
-    wire [`REG_INDEX_RANGE] dec_rf_rs1;
-    wire [`REG_INDEX_RANGE] dec_rf_rs2;
-    wire [`REG_INDEX_RANGE] dec_rf_rd;
-    wire                    dec_rf_occpuy_rd;
+    wire [`REG_INDEX_RANGE]  dec_rf_rs1;
+    wire [`REG_INDEX_RANGE]  dec_rf_rs2;
+    wire [`REG_INDEX_RANGE]  dec_rf_rd;
+    wire                     dec_rf_occpuy_rd;
     // RegisterFile to Decoder
-    wire [`WORD_RANGE]      rf_dec_Vj;
-    wire [`WORD_RANGE]      rf_dec_Vk;
-    wire [`ROB_TAG_RANGE]   rf_dec_Qj;
-    wire [`ROB_TAG_RANGE]   rf_dec_Qk;
-    wire [`ROB_TAG_RANGE]   rf_dec_dest;
+    wire [`WORD_RANGE]       rf_dec_Vj;
+    wire [`WORD_RANGE]       rf_dec_Vk;
+    wire [`ROB_TAG_RANGE]    rf_dec_Qj;
+    wire [`ROB_TAG_RANGE]    rf_dec_Qk;
+    wire [`ROB_TAG_RANGE]    rf_dec_dest;
 
     // Decoder to ReservationStation && LoadStoreBuffer
     wire [`INNER_INST_RANGE] dec_op_out;
@@ -102,52 +102,52 @@ module cpu (
     wire [`ROB_TAG_RANGE]    dec_next_tag_out;
 
     // Decoder to ReorderBuffer
-    wire                    dec_rob_issue;
-    wire [`WORD_RANGE]      dec_rob_predict_pc;
-    wire [`WORD_RANGE]      dec_rob_inst;
-    wire [`REG_INDEX_RANGE] dec_rob_rd;
-    wire [`ROB_TAG_RANGE]   dec_rob_Qj;
-    wire [`ROB_TAG_RANGE]   dec_rob_Qk;
+    wire                     dec_rob_issue;
+    wire [`WORD_RANGE]       dec_rob_predict_pc;
+    wire [`WORD_RANGE]       dec_rob_inst;
+    wire [`REG_INDEX_RANGE]  dec_rob_rd;
+    wire [`ROB_TAG_RANGE]    dec_rob_Qj;
+    wire [`ROB_TAG_RANGE]    dec_rob_Qk;
     // ReorderBuffer to Decoder
-    wire [`ROB_TAG_RANGE]   rob_dec_next_tag;
-    wire                    rob_dec_Vj_ready;
-    wire                    rob_dec_Vk_ready;
-    wire [`WORD_RANGE]      rob_dec_Vj;
-    wire [`WORD_RANGE]      rob_dec_Vk;
+    wire [`ROB_TAG_RANGE]    rob_dec_next_tag;
+    wire                     rob_dec_Vj_ready;
+    wire                     rob_dec_Vk_ready;
+    wire [`WORD_RANGE]       rob_dec_Vj;
+    wire [`WORD_RANGE]       rob_dec_Vk;
 
     // Dispatcher to ReservationStation
     wire dis_rs_new_inst_signal;
 
     // Dispatcher to LoadStoreBuffer
-    wire       dis_lsb_new_inst_signal;
-    wire       dis_lsb_load_store_signal;
-    wire [2:0] dis_lsb_goal;
+    wire                     dis_lsb_new_inst_signal;
+    wire                     dis_lsb_load_store_signal;
+    wire [2:0]               dis_lsb_goal;
 
     // ReorderBuffer to Fetcher
-    wire [`WORD_RANGE] rob_fet_rollback_pc;
-    wire               rob_commit_fet_signal_out;
-    wire               rob_fet_branch_taken;
+    wire [`WORD_RANGE]       rob_fet_rollback_pc;
+    wire                     rob_commit_fet_signal_out;
+    wire                     rob_fet_branch_taken;
 
     // LoadStoreBuffer to ReorderBuffer
     wire lsb_rob_mark_as_io_load;
-    wire [`ROB_TAG_RANGE] lsb_rob_io_load_tag;
+    wire [`ROB_TAG_RANGE]    lsb_rob_io_load_tag;
     // ReorderBuffer to LoadStoreBuffer
-    wire rob_lsb_store_or_io_load;
+    wire                     rob_lsb_store_or_io_load;
 
     // Global Signal
-    wire rs_full_out;
-    wire lsb_full_out;
-    wire rob_full_out;
-    wire rob_rollback_out;
+    wire                     rs_full_out;
+    wire                     lsb_full_out;
+    wire                     rob_full_out;
+    wire                     rob_rollback_out;
 
     // ReorderBuffer to RegisterFile && LoadStoreBuffer
-    wire                    rob_commit_signal_out;
-    wire                    rob_commit_rf_signal_out;
-    wire                    rob_commit_lsb_signal_out;
-    wire [`WORD_RANGE]      rob_commit_pc_out;
-    wire [`ROB_TAG_RANGE]   rob_commit_tag_out;
-    wire [`WORD_RANGE]      rob_commit_data_out;
-    wire [`REG_INDEX_RANGE] rob_commit_target_out;
+    wire                     rob_commit_signal_out;
+    wire                     rob_commit_rf_signal_out;
+    wire                     rob_commit_lsb_signal_out;
+    wire [`WORD_RANGE]       rob_commit_pc_out;
+    wire [`ROB_TAG_RANGE]    rob_commit_tag_out;
+    wire [`WORD_RANGE]       rob_commit_data_out;
+    wire [`REG_INDEX_RANGE]  rob_commit_target_out;
 
     // ReservationStation to ArithmeticLogicUnit
     wire                     rs_alu_calculate_signal;
@@ -159,20 +159,20 @@ module cpu (
     wire [`ROB_TAG_RANGE]    rs_alu_dest;
 
     // ArithmeticLogicUnit to ReorderBuffer
-    wire [`WORD_RANGE] alu_rob_new_pc;
+    wire [`WORD_RANGE]       alu_rob_new_pc;
 
     // ArithmeticLogicUnit broadcast
-    wire                  alu_broadcast_signal_out;
-    wire [`WORD_RANGE]    alu_result_out;
-    wire [`ROB_TAG_RANGE] alu_dest_tag_out;
+    wire                     alu_broadcast_signal_out;
+    wire [`WORD_RANGE]       alu_result_out;
+    wire [`ROB_TAG_RANGE]    alu_dest_tag_out;
     // LoadStoreBuffer broadcast
-    wire                  lsb_broadcast_signal_out;
-    wire [`WORD_RANGE]    lsb_result_out;
-    wire [`ROB_TAG_RANGE] lsb_dest_tag_out;
+    wire                     lsb_broadcast_signal_out;
+    wire [`WORD_RANGE]       lsb_result_out;
+    wire [`ROB_TAG_RANGE]    lsb_dest_tag_out;
     // ReorderBuffer broadcast
-    wire                  rob_broadcast_signal_out;
-    wire [`WORD_RANGE]    rob_result_out;
-    wire [`ROB_TAG_RANGE] rob_dest_tag_out;
+    wire                     rob_broadcast_signal_out;
+    wire [`WORD_RANGE]       rob_result_out;
+    wire [`ROB_TAG_RANGE]    rob_dest_tag_out;
 
     // inner rst
     wire inner_rst;
