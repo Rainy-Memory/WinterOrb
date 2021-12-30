@@ -1,5 +1,7 @@
 # WinterOrb
 
+![WinterOrb](assets/WinterOrb.png)
+
 WinterOrb, a toy tomasulo cpu with verilog implementation.
 
 Click [here](https://github.com/ACMClassCourses/RISCV-CPU) for mor details.
